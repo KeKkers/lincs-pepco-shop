@@ -19,6 +19,7 @@ type BasketItem = Product & {
 export default function Home() {
   const [products, setProducts] = useState<Product[]>([])
   const [basket, setBasket] = useState<BasketItem[]>([])
+  const [isCheckingOut, setIsCheckingOut] = useState(false)
 
   useEffect(() => {
     async function loadProducts() {
@@ -65,6 +66,34 @@ export default function Home() {
         )
         .filter((item) => item.quantity > 0)
     )
+  }
+
+  async function checkout() {
+    try {
+      setIsCheckingOut(true)
+
+      const response = await fetch('/api/create-checkout-session', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ basket }),
+      })
+
+      const data = await response.json()
+
+      if (data.url) {
+        window.location.href = data.url
+        return
+      }
+
+      alert(data.error || 'Checkout failed. Please try again.')
+    } catch (error) {
+      console.error(error)
+      alert('Checkout failed. Please try again.')
+    } finally {
+      setIsCheckingOut(false)
+    }
   }
 
   const total = basket.reduce(
@@ -150,10 +179,11 @@ export default function Home() {
           </div>
 
           <button
-            onClick={() => alert('Checkout coming next')}
-            className="w-full rounded-xl bg-white text-black py-3 font-semibold"
+            onClick={checkout}
+            disabled={isCheckingOut}
+            className="w-full rounded-xl bg-white text-black py-3 font-semibold disabled:opacity-50"
           >
-            Checkout
+            {isCheckingOut ? 'Opening checkout...' : 'Checkout'}
           </button>
         </div>
       )}
