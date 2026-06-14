@@ -14,6 +14,12 @@ export async function POST(request: Request) {
       )
     }
 
+    const total = basket.reduce(
+      (sum: number, item: any) =>
+        sum + Number(item.price) * Number(item.quantity),
+      0
+    )
+
     const session = await stripe.checkout.sessions.create({
       mode: 'payment',
       payment_method_types: ['card'],
@@ -28,6 +34,17 @@ export async function POST(request: Request) {
         },
         quantity: item.quantity,
       })),
+      metadata: {
+        basket: JSON.stringify(
+          basket.map((item: any) => ({
+            product_id: item.id,
+            name: item.name,
+            price: item.price,
+            quantity: item.quantity,
+          }))
+        ),
+        total: total.toFixed(2),
+      },
       success_url: `${request.headers.get('origin')}/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${request.headers.get('origin')}/`,
     })
