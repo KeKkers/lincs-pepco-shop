@@ -36,12 +36,23 @@ export async function POST(request: Request) {
     const session = event.data.object as Stripe.Checkout.Session
 
     const basket = JSON.parse(session.metadata?.basket || '[]')
-    const total = Number(session.metadata?.total || 0)
+
+    const telegramUserId = Number(session.metadata?.telegram_user_id || 0)
+
+    const customerName =
+      [
+        session.metadata?.telegram_first_name,
+        session.metadata?.telegram_last_name,
+      ]
+        .filter(Boolean)
+        .join(' ') ||
+      session.customer_details?.name ||
+      'Stripe customer'
 
     for (const item of basket) {
       const { error } = await supabaseAdmin.from('orders').insert({
-        telegram_user_id: 0,
-        customer_name: session.customer_details?.name || 'Stripe customer',
+        telegram_user_id: telegramUserId,
+        customer_name: customerName,
         product_id: item.product_id,
         quantity: item.quantity,
         total_price: Number(item.price) * Number(item.quantity),
@@ -50,14 +61,13 @@ export async function POST(request: Request) {
 
       if (error) {
         console.error('Supabase order insert failed:', error)
+
         return NextResponse.json(
           { error: 'Order insert failed' },
           { status: 500 }
         )
       }
     }
-
-    console.log(`Order paid successfully. Total: £${total}`)
   }
 
   return NextResponse.json({ received: true })

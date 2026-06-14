@@ -3,6 +3,12 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 
+declare global {
+  interface Window {
+    Telegram?: any
+  }
+}
+
 type Product = {
   id: number
   name: string
@@ -20,6 +26,7 @@ export default function Home() {
   const [products, setProducts] = useState<Product[]>([])
   const [basket, setBasket] = useState<BasketItem[]>([])
   const [isCheckingOut, setIsCheckingOut] = useState(false)
+  const [telegramUser, setTelegramUser] = useState<any>(null)
 
   useEffect(() => {
     async function loadProducts() {
@@ -38,6 +45,12 @@ export default function Home() {
     }
 
     loadProducts()
+
+    if (window.Telegram?.WebApp?.initDataUnsafe?.user) {
+      setTelegramUser(window.Telegram.WebApp.initDataUnsafe.user)
+    }
+
+    window.Telegram?.WebApp?.ready()
   }, [])
 
   function addToBasket(product: Product) {
@@ -74,10 +87,8 @@ export default function Home() {
 
       const response = await fetch('/api/create-checkout-session', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ basket }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ basket, telegramUser }),
       })
 
       const data = await response.json()

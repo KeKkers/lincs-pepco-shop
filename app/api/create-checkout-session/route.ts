@@ -5,7 +5,7 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
 
 export async function POST(request: Request) {
   try {
-    const { basket } = await request.json()
+    const { basket, telegramUser } = await request.json()
 
     if (!basket || basket.length === 0) {
       return NextResponse.json(
@@ -44,6 +44,10 @@ export async function POST(request: Request) {
           }))
         ),
         total: total.toFixed(2),
+        telegram_user_id: telegramUser?.id?.toString() || '',
+        telegram_username: telegramUser?.username || '',
+        telegram_first_name: telegramUser?.first_name || '',
+        telegram_last_name: telegramUser?.last_name || '',
       },
       success_url: `${request.headers.get('origin')}/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${request.headers.get('origin')}/`,
