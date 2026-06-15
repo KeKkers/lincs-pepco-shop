@@ -19,8 +19,10 @@ type Order = {
   total_price: number
   order_total: number | null
   expected_dispatch_date: string | null
+  dispatch_date: string | null
   carrier: string | null
   tracking_number: string | null
+  notes: string | null
   created_at: string
   products?: {
     name: string
@@ -38,11 +40,23 @@ const statuses = [
   'Refunded',
 ]
 
+const carriers = [
+  '',
+  'Royal Mail',
+  'Evri',
+  'DPD',
+  'Yodel',
+  'ParcelForce',
+  'Collection',
+  'Other',
+]
+
 export default function AdminPage() {
   const [orders, setOrders] = useState<Order[]>([])
   const [isAdmin, setIsAdmin] = useState(false)
   const [loading, setLoading] = useState(true)
   const [telegramUserId, setTelegramUserId] = useState<number | null>(null)
+  const [savingOrderId, setSavingOrderId] = useState<number | null>(null)
 
   useEffect(() => {
     async function initAdmin() {
@@ -97,14 +111,42 @@ export default function AdminPage() {
     setOrders(data || [])
   }
 
-  async function updateStatus(orderId: number, status: string) {
+  function updateLocalOrder(
+    orderId: number,
+    field: keyof Order,
+    value: string
+  ) {
+    setOrders((current) =>
+      current.map((order) =>
+        order.id === orderId
+          ? {
+              ...order,
+              [field]: value,
+            }
+          : order
+      )
+    )
+  }
+
+  async function saveOrder(order: Order) {
+    setSavingOrderId(order.id)
+
     const { error } = await supabase
       .from('orders')
-      .update({ status })
-      .eq('id', orderId)
+      .update({
+        status: order.status,
+        carrier: order.carrier || null,
+        tracking_number: order.tracking_number || null,
+        dispatch_date: order.dispatch_date || null,
+        expected_dispatch_date: order.expected_dispatch_date || null,
+        notes: order.notes || null,
+      })
+      .eq('id', order.id)
+
+    setSavingOrderId(null)
 
     if (error) {
-      alert('Status update failed')
+      alert('Order update failed')
       console.error(error)
       return
     }
@@ -139,8 +181,15 @@ export default function AdminPage() {
       <h1 className="text-2xl font-bold mb-2">Lincs Pep Co Admin</h1>
 
       <p className="text-neutral-400 mb-6">
-        Manage paid orders and production status.
+        Manage orders, production status and dispatch details.
       </p>
+
+      <button
+        onClick={loadOrders}
+        className="mb-4 w-full rounded-xl bg-white text-black py-3 font-semibold"
+      >
+        Refresh Orders
+      </button>
 
       <div className="space-y-4">
         {orders.map((order) => (
@@ -167,51 +216,151 @@ export default function AdminPage() {
               <p>
                 <strong>Customer:</strong> {order.customer_name || 'Unknown'}
               </p>
+
               <p>
                 <strong>Telegram:</strong>{' '}
                 {order.telegram_username
                   ? `@${order.telegram_username}`
                   : 'Not captured'}
               </p>
+
               <p>
                 <strong>Product:</strong>{' '}
                 {order.products?.name || `Product #${order.id}`}
               </p>
+
               <p>
                 <strong>Quantity:</strong> {order.quantity}
               </p>
+
               <p>
                 <strong>Line Total:</strong> £
                 {Number(order.total_price).toFixed(2)}
               </p>
+
               <p>
                 <strong>Order Total:</strong> £
                 {Number(order.order_total || order.total_price).toFixed(2)}
               </p>
-              <p>
-                <strong>Expected Dispatch:</strong>{' '}
-                {order.expected_dispatch_date || 'Not set'}
-              </p>
             </div>
 
-            <div className="mt-4">
-              <label className="text-sm text-neutral-400">
-                Update status
-              </label>
+            <div className="mt-4 space-y-3">
+              <div>
+                <label className="text-sm text-neutral-400">
+                  Order Status
+                </label>
 
-              <select
-                value={order.status}
-                onChange={(event) =>
-                  updateStatus(order.id, event.target.value)
-                }
-                className="mt-2 w-full rounded-xl bg-neutral-800 border border-neutral-700 p-3"
+                <select
+                  value={order.status}
+                  onChange={(event) =>
+                    updateLocalOrder(order.id, 'status', event.target.value)
+                  }
+                  className="mt-2 w-full rounded-xl bg-neutral-800 border border-neutral-700 p-3"
+                >
+                  {statuses.map((status) => (
+                    <option key={status} value={status}>
+                      {status}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="text-sm text-neutral-400">
+                  Expected Dispatch Date
+                </label>
+
+                <input
+                  type="date"
+                  value={order.expected_dispatch_date || ''}
+                  onChange={(event) =>
+                    updateLocalOrder(
+                      order.id,
+                      'expected_dispatch_date',
+                      event.target.value
+                    )
+                  }
+                  className="mt-2 w-full rounded-xl bg-neutral-800 border border-neutral-700 p-3"
+                />
+              </div>
+
+              <div>
+                <label className="text-sm text-neutral-400">
+                  Carrier
+                </label>
+
+                <select
+                  value={order.carrier || ''}
+                  onChange={(event) =>
+                    updateLocalOrder(order.id, 'carrier', event.target.value)
+                  }
+                  className="mt-2 w-full rounded-xl bg-neutral-800 border border-neutral-700 p-3"
+                >
+                  {carriers.map((carrier) => (
+                    <option key={carrier || 'blank'} value={carrier}>
+                      {carrier || 'Not selected'}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="text-sm text-neutral-400">
+                  Tracking Number
+                </label>
+
+                <input
+                  type="text"
+                  value={order.tracking_number || ''}
+                  onChange={(event) =>
+                    updateLocalOrder(
+                      order.id,
+                      'tracking_number',
+                      event.target.value
+                    )
+                  }
+                  placeholder="e.g. RM123456789GB"
+                  className="mt-2 w-full rounded-xl bg-neutral-800 border border-neutral-700 p-3"
+                />
+              </div>
+
+              <div>
+                <label className="text-sm text-neutral-400">
+                  Dispatch Date
+                </label>
+
+                <input
+                  type="date"
+                  value={order.dispatch_date || ''}
+                  onChange={(event) =>
+                    updateLocalOrder(order.id, 'dispatch_date', event.target.value)
+                  }
+                  className="mt-2 w-full rounded-xl bg-neutral-800 border border-neutral-700 p-3"
+                />
+              </div>
+
+              <div>
+                <label className="text-sm text-neutral-400">
+                  Internal Notes
+                </label>
+
+                <textarea
+                  value={order.notes || ''}
+                  onChange={(event) =>
+                    updateLocalOrder(order.id, 'notes', event.target.value)
+                  }
+                  placeholder="Production notes, customer requests, packing notes..."
+                  className="mt-2 w-full rounded-xl bg-neutral-800 border border-neutral-700 p-3 min-h-24"
+                />
+              </div>
+
+              <button
+                onClick={() => saveOrder(order)}
+                disabled={savingOrderId === order.id}
+                className="w-full rounded-xl bg-white text-black py-3 font-semibold disabled:opacity-50"
               >
-                {statuses.map((status) => (
-                  <option key={status} value={status}>
-                    {status}
-                  </option>
-                ))}
-              </select>
+                {savingOrderId === order.id ? 'Saving...' : 'Save Order Updates'}
+              </button>
             </div>
           </div>
         ))}
