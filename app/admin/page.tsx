@@ -20,6 +20,8 @@ type Order = {
   telegram_username: string | null
   status: string
   quantity: number
+shipping_cost: number | null
+shipping_service: string | null
   total_price: number
   order_total: number | null
   expected_dispatch_date: string | null
@@ -345,6 +347,15 @@ export default function AdminPage() {
                 <strong>Order Total:</strong> £
                 {Number(order.order_total || order.total_price).toFixed(2)}
               </p>
+		<p>
+  <strong>Shipping Service:</strong>{' '}
+  {order.shipping_service || 'Not selected'}
+</p>
+
+<p>
+  <strong>Shipping Cost:</strong> £
+  {Number(order.shipping_cost || 0).toFixed(2)}
+</p>
             </div>
 
             <div className="mt-4 space-y-3">

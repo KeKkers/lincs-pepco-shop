@@ -100,6 +100,9 @@ export async function POST(request: Request) {
 
     const orderReference = generateOrderReference(session.id)
     const orderTotal = Number(session.metadata?.total || 0)
+    const shippingCost = Number(session.metadata?.shipping_cost || 0)
+    const shippingMethod = session.metadata?.shipping_method || null
+    const shippingService = session.metadata?.shipping_service || null
     const expectedDispatchDate = getExpectedDispatchDate()
 
     for (const item of basket) {
@@ -124,6 +127,18 @@ export async function POST(request: Request) {
               : null,
           order_reference: orderReference,
           expected_dispatch_date: expectedDispatchDate,
+          shipping_method: shippingMethod,
+          shipping_service: shippingService,
+          shipping_cost: shippingCost,
+          shipping_paid_by:
+            shippingMethod === 'Customer InPost' ? 'customer' : 'seller',
+          carrier:
+            shippingMethod === 'Royal Mail Click & Drop'
+              ? 'Royal Mail'
+              : shippingMethod === 'Customer InPost'
+                ? 'InPost'
+                : null,
+          dropoff_status: 'Not Ready',
         })
 
       if (error) {

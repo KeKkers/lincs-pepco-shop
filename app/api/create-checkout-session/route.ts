@@ -5,7 +5,7 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
 
 export async function POST(request: Request) {
   try {
-    const { basket, telegramUser } = await request.json()
+    const { basket, telegramUser, shipping } = await request.json()
 
     if (!basket || basket.length === 0) {
       return NextResponse.json(
@@ -14,16 +14,17 @@ export async function POST(request: Request) {
       )
     }
 
-    const total = basket.reduce(
+    const basketTotal = basket.reduce(
       (sum: number, item: any) =>
         sum + Number(item.price) * Number(item.quantity),
       0
     )
 
-    const session = await stripe.checkout.sessions.create({
-      mode: 'payment',
-      payment_method_types: ['card'],
-      line_items: basket.map((item: any) => ({
+    const shippingCost = Number(shipping?.cost || 0)
+    const grandTotal = basketTotal + shippingCost
+
+    const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] =
+      basket.map((item: any) => ({
         price_data: {
           currency: 'gbp',
           product_data: {
@@ -33,7 +34,26 @@ export async function POST(request: Request) {
           unit_amount: Math.round(Number(item.price) * 100),
         },
         quantity: item.quantity,
-      })),
+      }))
+
+    if (shippingCost > 0) {
+      lineItems.push({
+        price_data: {
+          currency: 'gbp',
+          product_data: {
+            name: shipping.service || 'Shipping',
+            description: shipping.method || 'Shipping',
+          },
+          unit_amount: Math.round(shippingCost * 100),
+        },
+        quantity: 1,
+      })
+    }
+
+    const session = await stripe.checkout.sessions.create({
+      mode: 'payment',
+      payment_method_types: ['card'],
+      line_items: lineItems,
       metadata: {
         basket: JSON.stringify(
           basket.map((item: any) => ({
@@ -43,7 +63,11 @@ export async function POST(request: Request) {
             quantity: item.quantity,
           }))
         ),
-        total: total.toFixed(2),
+        basket_total: basketTotal.toFixed(2),
+        shipping_method: shipping?.method || '',
+        shipping_service: shipping?.service || '',
+        shipping_cost: shippingCost.toFixed(2),
+        total: grandTotal.toFixed(2),
         telegram_user_id: telegramUser?.id?.toString() || '',
         telegram_username: telegramUser?.username || '',
         telegram_first_name: telegramUser?.first_name || '',

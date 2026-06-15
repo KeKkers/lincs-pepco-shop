@@ -1,8 +1,8 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { supabase } from '@/lib/supabase'
 import { QRCodeSVG } from 'qrcode.react'
+import { supabase } from '@/lib/supabase'
 
 declare global {
   interface Window {
@@ -23,8 +23,12 @@ type Order = {
   dispatch_date: string | null
   carrier: string | null
   tracking_number: string | null
+  customer_shipping_reference: string | null
+  shipping_method: string | null
+  shipping_service: string | null
+  shipping_cost: number | null
+  dropoff_status: string | null
   created_at: string
-customer_shipping_reference: string | null
   products?: {
     name: string
   } | null
@@ -134,7 +138,7 @@ export default function OrdersPage() {
             <div className="mt-4 space-y-2 text-sm">
               <p>
                 <strong>Product:</strong>{' '}
-                {order.products?.name || `Product #${order.id}`}
+                {order.products?.name || `Order item #${order.id}`}
               </p>
 
               <p>
@@ -142,14 +146,30 @@ export default function OrdersPage() {
               </p>
 
               <p>
-                <strong>Total:</strong> £
+                <strong>Order Total:</strong> £
                 {Number(order.order_total || order.total_price).toFixed(2)}
+              </p>
+
+              <p>
+                <strong>Shipping:</strong>{' '}
+                {order.shipping_service || order.shipping_method || 'Not selected'}
+              </p>
+
+              <p>
+                <strong>Shipping Cost:</strong> £
+                {Number(order.shipping_cost || 0).toFixed(2)}
               </p>
 
               <p>
                 <strong>Expected Dispatch:</strong>{' '}
                 {order.expected_dispatch_date || 'To be confirmed'}
               </p>
+
+              {order.dropoff_status && (
+                <p>
+                  <strong>Drop-off Status:</strong> {order.dropoff_status}
+                </p>
+              )}
 
               {order.dispatch_date && (
                 <p>
@@ -169,30 +189,24 @@ export default function OrdersPage() {
                 </p>
               )}
 
-{order.tracking_number && (
-  <p>
-    <strong>Tracking:</strong> {order.tracking_number}
-  </p>
-)}
+              {order.customer_shipping_reference && (
+                <div className="mt-4">
+                  <p className="mb-2">
+                    <strong>InPost QR Code</strong>
+                  </p>
 
-{order.customer_shipping_reference && (
-  <div className="mt-4">
-    <p className="mb-2">
-      <strong>InPost QR Code</strong>
-    </p>
+                  <div className="rounded-xl bg-white p-4 inline-block">
+                    <QRCodeSVG
+                      value={order.customer_shipping_reference}
+                      size={180}
+                    />
+                  </div>
 
-    <div className="rounded-xl bg-white p-4 inline-block">
-      <QRCodeSVG
-        value={order.customer_shipping_reference}
-        size={180}
-      />
-    </div>
-
-    <p className="text-xs text-neutral-400 mt-2">
-      Ref: {order.customer_shipping_reference}
-    </p>
-  </div>
-)}
+                  <p className="text-xs text-neutral-400 mt-2">
+                    Ref: {order.customer_shipping_reference}
+                  </p>
+                </div>
+              )}
             </div>
           </div>
         ))}
