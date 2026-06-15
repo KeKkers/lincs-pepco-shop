@@ -9,6 +9,12 @@ declare global {
   }
 }
 
+type ProductImage = {
+  image_url: string
+  alt_text: string | null
+  sort_order: number | null
+}
+
 type Product = {
   id: number
   name: string
@@ -16,6 +22,7 @@ type Product = {
   price: number
   image_url: string | null
   category: string | null
+  product_images?: ProductImage[]
 }
 
 type BasketItem = Product & {
@@ -32,7 +39,14 @@ export default function Home() {
     async function loadProducts() {
       const { data, error } = await supabase
         .from('products')
-        .select('*')
+        .select(`
+          *,
+          product_images (
+            image_url,
+            alt_text,
+            sort_order
+          )
+        `)
         .eq('active', true)
         .order('id')
 
@@ -46,20 +60,25 @@ export default function Home() {
 
     loadProducts()
 
-const tg = window.Telegram?.WebApp
+    const tg = window.Telegram?.WebApp
 
-if (tg) {
-  tg.ready()
-  tg.expand()
+    if (tg) {
+      tg.ready()
+      tg.expand()
 
-  if (tg.initDataUnsafe?.user) {
-    setTelegramUser(tg.initDataUnsafe.user)
-    console.log('Telegram user:', tg.initDataUnsafe.user)
-  } else {
-    console.log('No Telegram user found')
-  }
-}
+      if (tg.initDataUnsafe?.user) {
+        setTelegramUser(tg.initDataUnsafe.user)
+      }
+    }
   }, [])
+
+  function getProductImage(product: Product) {
+    const sortedImages = product.product_images?.sort(
+      (a, b) => Number(a.sort_order || 0) - Number(b.sort_order || 0)
+    )
+
+    return sortedImages?.[0]?.image_url || product.image_url
+  }
 
   function addToBasket(product: Product) {
     setBasket((current) => {
@@ -129,29 +148,41 @@ if (tg) {
       </p>
 
       <div className="grid gap-4">
-        {products.map((product) => (
-          <div
-            key={product.id}
-            className="rounded-2xl bg-neutral-900 border border-neutral-800 p-4"
-          >
-            <h2 className="text-lg font-semibold">{product.name}</h2>
+        {products.map((product) => {
+          const productImage = getProductImage(product)
 
-            <p className="text-neutral-400 text-sm mt-1">
-              {product.description}
-            </p>
-
-            <p className="text-xl font-bold mt-3">
-              £{Number(product.price).toFixed(2)}
-            </p>
-
-            <button
-              onClick={() => addToBasket(product)}
-              className="mt-4 w-full rounded-xl bg-white text-black py-3 font-semibold"
+          return (
+            <div
+              key={product.id}
+              className="rounded-2xl bg-neutral-900 border border-neutral-800 p-4"
             >
-              Add to basket
-            </button>
-          </div>
-        ))}
+              {productImage && (
+                <img
+                  src={productImage}
+                  alt={product.name}
+                  className="mb-4 h-48 w-full rounded-xl object-cover bg-neutral-800"
+                />
+              )}
+
+              <h2 className="text-lg font-semibold">{product.name}</h2>
+
+              <p className="text-neutral-400 text-sm mt-1">
+                {product.description}
+              </p>
+
+              <p className="text-xl font-bold mt-3">
+                £{Number(product.price).toFixed(2)}
+              </p>
+
+              <button
+                onClick={() => addToBasket(product)}
+                className="mt-4 w-full rounded-xl bg-white text-black py-3 font-semibold"
+              >
+                Add to basket
+              </button>
+            </div>
+          )
+        })}
       </div>
 
       {basket.length > 0 && (

@@ -4,6 +4,16 @@ import { supabaseAdmin } from '@/lib/supabase-admin'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
 
+function generateOrderReference(sessionId: string) {
+  return `LPC-${sessionId.slice(-8).toUpperCase()}`
+}
+
+function getExpectedDispatchDate() {
+  const date = new Date()
+  date.setDate(date.getDate() + 3)
+  return date.toISOString().split('T')[0]
+}
+
 export async function POST(request: Request) {
   const body = await request.text()
   const signature = request.headers.get('stripe-signature')
@@ -56,10 +66,47 @@ export async function POST(request: Request) {
       session.customer_details?.name ||
       'Stripe customer'
 
+    let customerId: number | null = null
+
+    if (telegramUserId > 0) {
+      const { data: customer, error: customerError } = await supabaseAdmin
+        .from('customers')
+        .upsert(
+          {
+            telegram_user_id: telegramUserId,
+            telegram_username: telegramUsername,
+            telegram_first_name: telegramFirstName,
+            telegram_last_name: telegramLastName,
+            updated_at: new Date().toISOString(),
+          },
+          {
+            onConflict: 'telegram_user_id',
+          }
+        )
+        .select('id')
+        .single()
+
+      if (customerError) {
+        console.error('Customer upsert failed:', customerError)
+
+        return NextResponse.json(
+          { error: 'Customer upsert failed' },
+          { status: 500 }
+        )
+      }
+
+      customerId = customer.id
+    }
+
+    const orderReference = generateOrderReference(session.id)
+    const orderTotal = Number(session.metadata?.total || 0)
+    const expectedDispatchDate = getExpectedDispatchDate()
+
     for (const item of basket) {
       const { error } = await supabaseAdmin
         .from('orders')
         .insert({
+          customer_id: customerId,
           telegram_user_id: telegramUserId,
           telegram_username: telegramUsername,
           telegram_first_name: telegramFirstName,
@@ -67,9 +114,16 @@ export async function POST(request: Request) {
           customer_name: customerName,
           product_id: item.product_id,
           quantity: item.quantity,
-          total_price:
-            Number(item.price) * Number(item.quantity),
+          total_price: Number(item.price) * Number(item.quantity),
+          order_total: orderTotal,
           status: 'Paid',
+          stripe_session_id: session.id,
+          stripe_payment_intent_id:
+            typeof session.payment_intent === 'string'
+              ? session.payment_intent
+              : null,
+          order_reference: orderReference,
+          expected_dispatch_date: expectedDispatchDate,
         })
 
       if (error) {
