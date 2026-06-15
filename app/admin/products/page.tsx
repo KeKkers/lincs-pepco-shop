@@ -111,11 +111,12 @@ export default function ProductAdminPage() {
   }
 
   async function loadProducts() {
-    const { data, error } = await supabase
-      .from('products')
-      .select('*')
-      .order('sort_order', { ascending: true })
-      .order('id', { ascending: true })
+const { data, error } = await supabase
+  .from('products')
+  .select('*')
+  .eq('active', true)
+  .order('sort_order', { ascending: true })
+  .order('id', { ascending: true })
 
     if (error) {
       console.error(error)
@@ -267,6 +268,13 @@ export default function ProductAdminPage() {
       >
         Back to Orders Admin
       </a>
+
+<a
+  href="/"
+  className="block mb-4 rounded-xl bg-neutral-800 border border-neutral-700 text-center py-3 font-semibold"
+>
+  Back to Shop
+</a>
 
       <section className="rounded-2xl bg-neutral-900 border border-neutral-800 p-4 mb-6">
         <h2 className="text-xl font-bold mb-4">Add New Product</h2>

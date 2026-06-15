@@ -51,17 +51,18 @@ export default function Home() {
   const [basket, setBasket] = useState<BasketItem[]>([])
   const [isCheckingOut, setIsCheckingOut] = useState(false)
   const [telegramUser, setTelegramUser] = useState<any>(null)
+  const [isAdmin, setIsAdmin] = useState(false)
   const [shipping, setShipping] = useState<ShippingOption>(shippingOptions[0])
 
   useEffect(() => {
     async function loadProducts() {
-const { data, error } = await supabase
-  .from('products')
-  .select('*')
-  .eq('active', true)
-  .gt('stock_quantity', 0)
-  .order('sort_order', { ascending: true })
-  .order('id', { ascending: true })
+      const { data, error } = await supabase
+        .from('products')
+        .select('*')
+        .eq('active', true)
+        .gt('stock_quantity', 0)
+        .order('sort_order', { ascending: true })
+        .order('id', { ascending: true })
 
       if (error) {
         console.error(error)
@@ -69,6 +70,18 @@ const { data, error } = await supabase
       }
 
       setProducts(data || [])
+    }
+
+    async function checkAdmin(userId: number) {
+      const { data } = await supabase
+        .from('admin_users')
+        .select('id')
+        .eq('telegram_user_id', userId)
+        .single()
+
+      if (data) {
+        setIsAdmin(true)
+      }
     }
 
     loadProducts()
@@ -81,6 +94,7 @@ const { data, error } = await supabase
 
       if (tg.initDataUnsafe?.user) {
         setTelegramUser(tg.initDataUnsafe.user)
+        checkAdmin(Number(tg.initDataUnsafe.user.id))
       }
     }
   }, [])
@@ -161,12 +175,14 @@ const { data, error } = await supabase
         My Orders
       </a>
 
-      <a
-        href="/admin"
-        className="block mb-6 rounded-xl bg-neutral-800 border border-neutral-700 text-center py-3 font-semibold"
-      >
-        Admin Dashboard
-      </a>
+      {isAdmin && (
+        <a
+          href="/admin"
+          className="block mb-6 rounded-xl bg-neutral-800 border border-neutral-700 text-center py-3 font-semibold"
+        >
+          Admin Dashboard
+        </a>
+      )}
 
       <div className="grid gap-4">
         {products.map((product) => (
