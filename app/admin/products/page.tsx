@@ -41,6 +41,7 @@ export default function ProductAdminPage() {
   const [loading, setLoading] = useState(true)
   const [telegramUserId, setTelegramUserId] = useState<number | null>(null)
   const [savingId, setSavingId] = useState<number | null>(null)
+const [uploading, setUploading] = useState(false)
 
   useEffect(() => {
     async function init() {
@@ -75,6 +76,41 @@ export default function ProductAdminPage() {
 
     init()
   }, [])
+
+async function uploadImage(file: File) {
+  try {
+    setUploading(true)
+
+    const fileExt = file.name.split('.').pop()
+    const fileName = `${Date.now()}-${Math.random()
+      .toString(36)
+      .substring(2)}.${fileExt}`
+
+    const { error: uploadError } = await supabase.storage
+      .from('product-images')
+      .upload(fileName, file)
+
+    if (uploadError) {
+      console.error(uploadError)
+      alert('Image upload failed')
+      return null
+    }
+
+    const {
+      data: { publicUrl },
+    } = supabase.storage
+      .from('product-images')
+      .getPublicUrl(fileName)
+
+    return publicUrl
+  } catch (error) {
+    console.error(error)
+    alert('Image upload failed')
+    return null
+  } finally {
+    setUploading(false)
+  }
+}
 
   async function loadProducts() {
     const { data, error } = await supabase
@@ -274,26 +310,45 @@ export default function ProductAdminPage() {
             className="w-full rounded-xl bg-neutral-800 border border-neutral-700 p-3"
           />
 
-          <input
-            type="text"
-            value={newProduct.image_url}
-            onChange={(event) =>
-              setNewProduct({
-                ...newProduct,
-                image_url: event.target.value,
-              })
-            }
-            placeholder="Image URL"
-            className="w-full rounded-xl bg-neutral-800 border border-neutral-700 p-3"
-          />
+<div>
+  <label className="block mb-2 text-sm">
+    Product Image
+  </label>
 
-          {newProduct.image_url && (
-            <img
-              src={newProduct.image_url}
-              alt="Preview"
-              className="h-40 w-full rounded-xl object-cover bg-neutral-800"
-            />
-          )}
+  <input
+    type="file"
+    accept="image/*"
+    onChange={async (event) => {
+      const file = event.target.files?.[0]
+
+      if (!file) return
+
+      const url = await uploadImage(file)
+
+      if (url) {
+        setNewProduct({
+          ...newProduct,
+          image_url: url,
+        })
+      }
+    }}
+    className="w-full rounded-xl bg-neutral-800 border border-neutral-700 p-3"
+  />
+
+  {uploading && (
+    <p className="text-sm text-neutral-400 mt-2">
+      Uploading image...
+    </p>
+  )}
+
+  {newProduct.image_url && (
+    <img
+      src={newProduct.image_url}
+      alt="Preview"
+      className="mt-3 h-40 w-full rounded-xl object-cover bg-neutral-800"
+    />
+  )}
+</div>
 
           <input
             type="text"
@@ -441,19 +496,40 @@ export default function ProductAdminPage() {
                 className="w-full rounded-xl bg-neutral-800 border border-neutral-700 p-3"
               />
 
-              <input
-                type="text"
-                value={product.image_url || ''}
-                onChange={(event) =>
-                  updateLocalProduct(
-                    product.id,
-                    'image_url',
-                    event.target.value
-                  )
-                }
-                placeholder="Image URL"
-                className="w-full rounded-xl bg-neutral-800 border border-neutral-700 p-3"
-              />
+<div>
+  <label className="block mb-2 text-sm">
+    Product Image
+  </label>
+
+  <input
+    type="file"
+    accept="image/*"
+    onChange={async (event) => {
+      const file = event.target.files?.[0]
+
+      if (!file) return
+
+      const url = await uploadImage(file)
+
+      if (url) {
+        updateLocalProduct(
+          product.id,
+          'image_url',
+          url
+        )
+      }
+    }}
+    className="w-full rounded-xl bg-neutral-800 border border-neutral-700 p-3"
+  />
+
+  {product.image_url && (
+    <img
+      src={product.image_url}
+      alt={product.name}
+      className="mt-3 h-40 w-full rounded-xl object-cover bg-neutral-800"
+    />
+  )}
+</div>
 
               <input
                 type="text"
