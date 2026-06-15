@@ -11,6 +11,7 @@ declare global {
 
 type Order = {
   id: number
+  telegram_user_id: number
   order_reference: string | null
   customer_name: string | null
   telegram_username: string | null
@@ -128,6 +129,53 @@ export default function AdminPage() {
     )
   }
 
+  function buildCustomerMessage(order: Order) {
+    let message = `Order update: ${
+      order.order_reference || `Order #${order.id}`
+    }\n\n`
+
+    message += `Status: ${order.status}\n`
+
+    if (order.expected_dispatch_date) {
+      message += `Expected dispatch: ${order.expected_dispatch_date}\n`
+    }
+
+    if (order.dispatch_date) {
+      message += `Dispatch date: ${order.dispatch_date}\n`
+    }
+
+    if (order.carrier) {
+      message += `Carrier: ${order.carrier}\n`
+    }
+
+    if (order.tracking_number) {
+      message += `Tracking: ${order.tracking_number}\n`
+    }
+
+    message += `\nThank you for shopping with Lincs Pep Co.`
+
+    return message
+  }
+
+  async function sendTelegramNotification(order: Order) {
+    const response = await fetch('/api/send-telegram-notification', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        telegramUserId: order.telegram_user_id,
+        message: buildCustomerMessage(order),
+      }),
+    })
+
+    if (!response.ok) {
+      const data = await response.json()
+      console.error(data)
+      alert('Order saved, but Telegram notification failed.')
+    }
+  }
+
   async function saveOrder(order: Order) {
     setSavingOrderId(order.id)
 
@@ -151,6 +199,7 @@ export default function AdminPage() {
       return
     }
 
+    await sendTelegramNotification(order)
     await loadOrders()
   }
 
@@ -285,9 +334,7 @@ export default function AdminPage() {
               </div>
 
               <div>
-                <label className="text-sm text-neutral-400">
-                  Carrier
-                </label>
+                <label className="text-sm text-neutral-400">Carrier</label>
 
                 <select
                   value={order.carrier || ''}
@@ -359,7 +406,7 @@ export default function AdminPage() {
                 disabled={savingOrderId === order.id}
                 className="w-full rounded-xl bg-white text-black py-3 font-semibold disabled:opacity-50"
               >
-                {savingOrderId === order.id ? 'Saving...' : 'Save Order Updates'}
+                {savingOrderId === order.id ? 'Saving...' : 'Save & Notify Customer'}
               </button>
             </div>
           </div>
