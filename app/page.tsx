@@ -9,6 +9,13 @@ declare global {
   }
 }
 
+type ProductImage = {
+  id: number
+  product_id: number
+  image_url: string
+  sort_order: number | null
+}
+
 type Product = {
   id: number
   name: string
@@ -16,6 +23,7 @@ type Product = {
   price: number
   image_url: string | null
   category: string | null
+  product_images?: ProductImage[]
 }
 
 type BasketItem = Product & {
@@ -29,21 +37,9 @@ type ShippingOption = {
 }
 
 const shippingOptions: ShippingOption[] = [
-  {
-    method: 'Customer InPost',
-    service: 'Customer provides InPost code',
-    cost: 0,
-  },
-  {
-    method: 'Royal Mail Click & Drop',
-    service: 'Royal Mail Tracked 48',
-    cost: 3.95,
-  },
-  {
-    method: 'Royal Mail Click & Drop',
-    service: 'Royal Mail Tracked 24',
-    cost: 4.95,
-  },
+  { method: 'Customer InPost', service: 'Customer provides InPost code', cost: 0 },
+  { method: 'Royal Mail Click & Drop', service: 'Royal Mail Tracked 48', cost: 3.95 },
+  { method: 'Royal Mail Click & Drop', service: 'Royal Mail Tracked 24', cost: 4.95 },
 ]
 
 export default function Home() {
@@ -56,7 +52,7 @@ export default function Home() {
 
   useEffect(() => {
     async function loadProducts() {
-      const { data, error } = await supabase
+      const { data: productData, error: productError } = await supabase
         .from('products')
         .select('*')
         .eq('active', true)
@@ -64,12 +60,37 @@ export default function Home() {
         .order('sort_order', { ascending: true })
         .order('id', { ascending: true })
 
-      if (error) {
-        console.error(error)
+      if (productError) {
+        console.error(productError)
         return
       }
 
-      setProducts(data || [])
+      const productIds = (productData || []).map((product) => product.id)
+
+      if (productIds.length === 0) {
+        setProducts([])
+        return
+      }
+
+      const { data: imageData, error: imageError } = await supabase
+        .from('product_images')
+        .select('*')
+        .in('product_id', productIds)
+        .order('sort_order', { ascending: true })
+        .order('id', { ascending: true })
+
+      if (imageError) {
+        console.error(imageError)
+      }
+
+      const productsWithImages = (productData || []).map((product) => ({
+        ...product,
+        product_images: (imageData || []).filter(
+          (image) => image.product_id === product.id
+        ),
+      }))
+
+      setProducts(productsWithImages)
     }
 
     async function checkAdmin(userId: number) {
@@ -79,9 +100,7 @@ export default function Home() {
         .eq('telegram_user_id', userId)
         .single()
 
-      if (data) {
-        setIsAdmin(true)
-      }
+      if (data) setIsAdmin(true)
     }
 
     loadProducts()
@@ -98,6 +117,16 @@ export default function Home() {
       }
     }
   }, [])
+
+  function getImages(product: Product) {
+    const uploadedImages = product.product_images || []
+
+    if (uploadedImages.length > 0) {
+      return uploadedImages.map((image) => image.image_url)
+    }
+
+    return product.image_url ? [product.image_url] : []
+  }
 
   function addToBasket(product: Product) {
     setBasket((current) => {
@@ -185,37 +214,46 @@ export default function Home() {
       )}
 
       <div className="grid gap-4">
-        {products.map((product) => (
-          <div
-            key={product.id}
-            className="rounded-2xl bg-neutral-900 border border-neutral-800 p-4"
-          >
-            {product.image_url && (
-              <img
-                src={product.image_url}
-                alt={product.name}
-                className="mb-4 h-48 w-full rounded-xl object-cover bg-neutral-800"
-              />
-            )}
+        {products.map((product) => {
+          const images = getImages(product)
 
-            <h2 className="text-lg font-semibold">{product.name}</h2>
-
-            <p className="text-neutral-400 text-sm mt-1">
-              {product.description}
-            </p>
-
-            <p className="text-xl font-bold mt-3">
-              £{Number(product.price).toFixed(2)}
-            </p>
-
-            <button
-              onClick={() => addToBasket(product)}
-              className="mt-4 w-full rounded-xl bg-white text-black py-3 font-semibold"
+          return (
+            <div
+              key={product.id}
+              className="rounded-2xl bg-neutral-900 border border-neutral-800 p-4"
             >
-              Add to basket
-            </button>
-          </div>
-        ))}
+              {images.length > 0 && (
+                <div className="mb-4 flex gap-3 overflow-x-auto snap-x snap-mandatory">
+                  {images.map((imageUrl, index) => (
+                    <img
+                      key={`${product.id}-${imageUrl}-${index}`}
+                      src={imageUrl}
+                      alt={`${product.name} image ${index + 1}`}
+                      className="h-56 min-w-full snap-center rounded-xl object-cover bg-neutral-800"
+                    />
+                  ))}
+                </div>
+              )}
+
+              <h2 className="text-lg font-semibold">{product.name}</h2>
+
+              <p className="text-neutral-400 text-sm mt-1">
+                {product.description}
+              </p>
+
+              <p className="text-xl font-bold mt-3">
+                £{Number(product.price).toFixed(2)}
+              </p>
+
+              <button
+                onClick={() => addToBasket(product)}
+                className="mt-4 w-full rounded-xl bg-white text-black py-3 font-semibold"
+              >
+                Add to basket
+              </button>
+            </div>
+          )
+        })}
       </div>
 
       {basket.length > 0 && (
@@ -257,9 +295,7 @@ export default function Home() {
           </div>
 
           <div className="mb-3">
-            <label className="text-sm text-neutral-400">
-              Shipping
-            </label>
+            <label className="text-sm text-neutral-400">Shipping</label>
 
             <select
               value={`${shipping.method}|${shipping.service}`}
@@ -269,9 +305,7 @@ export default function Home() {
                     `${option.method}|${option.service}` === event.target.value
                 )
 
-                if (selected) {
-                  setShipping(selected)
-                }
+                if (selected) setShipping(selected)
               }}
               className="mt-2 w-full rounded-xl bg-neutral-800 border border-neutral-700 p-3"
             >
@@ -284,13 +318,6 @@ export default function Home() {
                 </option>
               ))}
             </select>
-
-            {shipping.method === 'Customer InPost' && (
-              <p className="text-xs text-neutral-400 mt-2">
-                You will need to provide your own valid InPost code/QR details
-                after ordering.
-              </p>
-            )}
           </div>
 
           <div className="space-y-1 mb-3 text-sm">

@@ -9,6 +9,13 @@ declare global {
   }
 }
 
+type ProductImage = {
+  id: number
+  product_id: number
+  image_url: string
+  sort_order: number | null
+}
+
 type Product = {
   id: number
   name: string
@@ -20,6 +27,7 @@ type Product = {
   stock_quantity: number | null
   sku: string | null
   sort_order: number | null
+  product_images?: ProductImage[]
 }
 
 const blankProduct = {
@@ -37,6 +45,7 @@ const blankProduct = {
 export default function ProductAdminPage() {
   const [products, setProducts] = useState<Product[]>([])
   const [newProduct, setNewProduct] = useState(blankProduct)
+  const [newProductFiles, setNewProductFiles] = useState<File[]>([])
   const [isAdmin, setIsAdmin] = useState(false)
   const [loading, setLoading] = useState(true)
   const [telegramUserId, setTelegramUserId] = useState<number | null>(null)
@@ -110,21 +119,77 @@ export default function ProductAdminPage() {
     }
   }
 
-  async function loadProducts() {
-const { data, error } = await supabase
-  .from('products')
-  .select('*')
-  .eq('active', true)
-  .order('sort_order', { ascending: true })
-  .order('id', { ascending: true })
+  async function uploadImagesForProduct(productId: number, files: File[]) {
+    if (files.length === 0) return
 
-    if (error) {
-      console.error(error)
+    for (let index = 0; index < files.length; index++) {
+      const url = await uploadImage(files[index])
+
+      if (!url) continue
+
+      const { error } = await supabase.from('product_images').insert({
+        product_id: productId,
+        image_url: url,
+        sort_order: index,
+      })
+
+      if (error) {
+        console.error(error)
+        alert('Image saved to storage but not linked to product')
+      }
+
+      if (index === 0) {
+        await supabase
+          .from('products')
+          .update({
+            image_url: url,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', productId)
+      }
+    }
+  }
+
+  async function loadProducts() {
+    const { data: productData, error: productError } = await supabase
+      .from('products')
+      .select('*')
+      .eq('active', true)
+      .order('sort_order', { ascending: true })
+      .order('id', { ascending: true })
+
+    if (productError) {
+      console.error(productError)
       alert('Unable to load products')
       return
     }
 
-    setProducts(data || [])
+    const productIds = (productData || []).map((product) => product.id)
+
+    if (productIds.length === 0) {
+      setProducts([])
+      return
+    }
+
+    const { data: imageData, error: imageError } = await supabase
+      .from('product_images')
+      .select('*')
+      .in('product_id', productIds)
+      .order('sort_order', { ascending: true })
+      .order('id', { ascending: true })
+
+    if (imageError) {
+      console.error(imageError)
+    }
+
+    const productsWithImages = (productData || []).map((product) => ({
+      ...product,
+      product_images: (imageData || []).filter(
+        (image) => image.product_id === product.id
+      ),
+    }))
+
+    setProducts(productsWithImages)
   }
 
   function updateLocalProduct(
@@ -147,13 +212,15 @@ const { data, error } = await supabase
   async function saveProduct(product: Product) {
     setSavingId(product.id)
 
+    const firstGalleryImage = product.product_images?.[0]?.image_url || null
+
     const { error } = await supabase
       .from('products')
       .update({
         name: product.name,
         description: product.description || null,
         price: Number(product.price),
-        image_url: product.image_url || null,
+        image_url: firstGalleryImage || product.image_url || null,
         category: product.category || null,
         active: product.active,
         stock_quantity: Number(product.stock_quantity || 0),
@@ -185,26 +252,56 @@ const { data, error } = await supabase
       return
     }
 
-    const { error } = await supabase.from('products').insert({
-      name: newProduct.name.trim(),
-      description: newProduct.description || null,
-      price: Number(newProduct.price),
-      image_url: newProduct.image_url || null,
-      category: newProduct.category || null,
-      active: newProduct.active,
-      stock_quantity: Number(newProduct.stock_quantity || 0),
-      sku: newProduct.sku || null,
-      sort_order: Number(newProduct.sort_order || 0),
-      updated_at: new Date().toISOString(),
-    })
+    const { data, error } = await supabase
+      .from('products')
+      .insert({
+        name: newProduct.name.trim(),
+        description: newProduct.description || null,
+        price: Number(newProduct.price),
+        image_url: newProduct.image_url || null,
+        category: newProduct.category || null,
+        active: newProduct.active,
+        stock_quantity: Number(newProduct.stock_quantity || 0),
+        sku: newProduct.sku || null,
+        sort_order: Number(newProduct.sort_order || 0),
+        updated_at: new Date().toISOString(),
+      })
+      .select('id')
+      .single()
 
-    if (error) {
+    if (error || !data) {
       console.error(error)
       alert('Product creation failed')
       return
     }
 
+    await uploadImagesForProduct(data.id, newProductFiles)
+
     setNewProduct(blankProduct)
+    setNewProductFiles([])
+    await loadProducts()
+  }
+
+  async function addImagesToExistingProduct(productId: number, files: File[]) {
+    await uploadImagesForProduct(productId, files)
+    await loadProducts()
+  }
+
+  async function deleteProductImage(imageId: number) {
+    const confirmed = confirm('Remove this image from the product?')
+    if (!confirmed) return
+
+    const { error } = await supabase
+      .from('product_images')
+      .delete()
+      .eq('id', imageId)
+
+    if (error) {
+      console.error(error)
+      alert('Unable to remove image')
+      return
+    }
+
     await loadProducts()
   }
 
@@ -247,9 +344,6 @@ const { data, error } = await supabase
         <p className="text-neutral-300">
           Telegram user ID: {telegramUserId || 'Not detected'}
         </p>
-        <p className="text-neutral-400 mt-3">
-          Open this page from inside Telegram using your bot.
-        </p>
       </main>
     )
   }
@@ -263,18 +357,18 @@ const { data, error } = await supabase
       </p>
 
       <a
+        href="/"
+        className="block mb-4 rounded-xl bg-neutral-800 border border-neutral-700 text-center py-3 font-semibold"
+      >
+        Back to Shop
+      </a>
+
+      <a
         href="/admin"
         className="block mb-4 rounded-xl bg-neutral-800 border border-neutral-700 text-center py-3 font-semibold"
       >
         Back to Orders Admin
       </a>
-
-<a
-  href="/"
-  className="block mb-4 rounded-xl bg-neutral-800 border border-neutral-700 text-center py-3 font-semibold"
->
-  Back to Shop
-</a>
 
       <section className="rounded-2xl bg-neutral-900 border border-neutral-800 p-4 mb-6">
         <h2 className="text-xl font-bold mb-4">Add New Product</h2>
@@ -330,41 +424,21 @@ const { data, error } = await supabase
 
           <div>
             <label className="block mb-2 text-sm text-neutral-400">
-              Product Image
+              Product Images
             </label>
-
             <input
               type="file"
               accept="image/*"
-              onChange={async (event) => {
-                const file = event.target.files?.[0]
-                if (!file) return
-
-                const url = await uploadImage(file)
-
-                if (url) {
-                  setNewProduct({
-                    ...newProduct,
-                    image_url: url,
-                  })
-                }
-              }}
+              multiple
+              onChange={(event) =>
+                setNewProductFiles(Array.from(event.target.files || []))
+              }
               className="w-full rounded-xl bg-neutral-800 border border-neutral-700 p-3"
             />
-
-            {uploading && (
-              <p className="text-sm text-neutral-400 mt-2">
-                Uploading image...
-              </p>
-            )}
-
-            {newProduct.image_url && (
-              <img
-                src={newProduct.image_url}
-                alt="Preview"
-                className="mt-3 h-40 w-full rounded-xl object-cover bg-neutral-800"
-              />
-            )}
+            <p className="text-xs text-neutral-500 mt-2">
+              You can select multiple images. They will upload when you add the
+              product.
+            </p>
           </div>
 
           <div>
@@ -447,6 +521,10 @@ const { data, error } = await supabase
             Active product
           </label>
 
+          {uploading && (
+            <p className="text-sm text-neutral-400">Uploading images...</p>
+          )}
+
           <button
             onClick={addProduct}
             className="w-full rounded-xl bg-white text-black py-3 font-semibold"
@@ -480,12 +558,24 @@ const { data, error } = await supabase
               </span>
             </div>
 
-            {product.image_url && (
-              <img
-                src={product.image_url}
-                alt={product.name}
-                className="mb-4 h-48 w-full rounded-xl object-cover bg-neutral-800"
-              />
+            {product.product_images && product.product_images.length > 0 && (
+              <div className="mb-4 flex gap-3 overflow-x-auto">
+                {product.product_images.map((image) => (
+                  <div key={image.id} className="min-w-48">
+                    <img
+                      src={image.image_url}
+                      alt={product.name}
+                      className="h-40 w-48 rounded-xl object-cover bg-neutral-800"
+                    />
+                    <button
+                      onClick={() => deleteProductImage(image.id)}
+                      className="mt-2 w-full rounded-lg bg-red-700 text-white py-2 text-sm"
+                    >
+                      Remove Image
+                    </button>
+                  </div>
+                ))}
+              </div>
             )}
 
             <div className="space-y-3">
@@ -541,32 +631,19 @@ const { data, error } = await supabase
 
               <div>
                 <label className="block mb-2 text-sm text-neutral-400">
-                  Product Image
+                  Add More Product Images
                 </label>
-
                 <input
                   type="file"
                   accept="image/*"
+                  multiple
                   onChange={async (event) => {
-                    const file = event.target.files?.[0]
-                    if (!file) return
-
-                    const url = await uploadImage(file)
-
-                    if (url) {
-                      updateLocalProduct(product.id, 'image_url', url)
-                    }
+                    const files = Array.from(event.target.files || [])
+                    if (files.length === 0) return
+                    await addImagesToExistingProduct(product.id, files)
                   }}
                   className="w-full rounded-xl bg-neutral-800 border border-neutral-700 p-3"
                 />
-
-                {product.image_url && (
-                  <img
-                    src={product.image_url}
-                    alt={product.name}
-                    className="mt-3 h-40 w-full rounded-xl object-cover bg-neutral-800"
-                  />
-                )}
               </div>
 
               <div>
