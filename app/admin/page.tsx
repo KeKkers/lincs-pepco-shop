@@ -289,6 +289,13 @@ export default function AdminPage() {
         details.
       </p>
 
+<a
+  href="/admin/products"
+  className="block mb-4 w-full rounded-xl bg-neutral-800 border border-neutral-700 text-center py-3 font-semibold"
+>
+  Manage Products
+</a>
+
       <button
         onClick={loadOrders}
         className="mb-4 w-full rounded-xl bg-white text-black py-3 font-semibold"
