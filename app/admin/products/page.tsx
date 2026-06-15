@@ -41,7 +41,7 @@ export default function ProductAdminPage() {
   const [loading, setLoading] = useState(true)
   const [telegramUserId, setTelegramUserId] = useState<number | null>(null)
   const [savingId, setSavingId] = useState<number | null>(null)
-const [uploading, setUploading] = useState(false)
+  const [uploading, setUploading] = useState(false)
 
   useEffect(() => {
     async function init() {
@@ -77,40 +77,38 @@ const [uploading, setUploading] = useState(false)
     init()
   }, [])
 
-async function uploadImage(file: File) {
-  try {
-    setUploading(true)
+  async function uploadImage(file: File) {
+    try {
+      setUploading(true)
 
-    const fileExt = file.name.split('.').pop()
-    const fileName = `${Date.now()}-${Math.random()
-      .toString(36)
-      .substring(2)}.${fileExt}`
+      const fileExt = file.name.split('.').pop()
+      const fileName = `${Date.now()}-${Math.random()
+        .toString(36)
+        .substring(2)}.${fileExt}`
 
-    const { error: uploadError } = await supabase.storage
-      .from('product-images')
-      .upload(fileName, file)
+      const { error: uploadError } = await supabase.storage
+        .from('product-images')
+        .upload(fileName, file)
 
-    if (uploadError) {
-      console.error(uploadError)
+      if (uploadError) {
+        console.error(uploadError)
+        alert('Image upload failed')
+        return null
+      }
+
+      const {
+        data: { publicUrl },
+      } = supabase.storage.from('product-images').getPublicUrl(fileName)
+
+      return publicUrl
+    } catch (error) {
+      console.error(error)
       alert('Image upload failed')
       return null
+    } finally {
+      setUploading(false)
     }
-
-    const {
-      data: { publicUrl },
-    } = supabase.storage
-      .from('product-images')
-      .getPublicUrl(fileName)
-
-    return publicUrl
-  } catch (error) {
-    console.error(error)
-    alert('Image upload failed')
-    return null
-  } finally {
-    setUploading(false)
   }
-}
 
   async function loadProducts() {
     const { data, error } = await supabase
@@ -274,133 +272,158 @@ async function uploadImage(file: File) {
         <h2 className="text-xl font-bold mb-4">Add New Product</h2>
 
         <div className="space-y-3">
-          <input
-            type="text"
-            value={newProduct.name}
-            onChange={(event) =>
-              setNewProduct({ ...newProduct, name: event.target.value })
-            }
-            placeholder="Product name"
-            className="w-full rounded-xl bg-neutral-800 border border-neutral-700 p-3"
-          />
+          <div>
+            <label className="block mb-2 text-sm text-neutral-400">
+              Product Name
+            </label>
+            <input
+              type="text"
+              value={newProduct.name}
+              onChange={(event) =>
+                setNewProduct({ ...newProduct, name: event.target.value })
+              }
+              className="w-full rounded-xl bg-neutral-800 border border-neutral-700 p-3"
+            />
+          </div>
 
-          <textarea
-            value={newProduct.description}
-            onChange={(event) =>
-              setNewProduct({
-                ...newProduct,
-                description: event.target.value,
-              })
-            }
-            placeholder="Product description"
-            className="w-full rounded-xl bg-neutral-800 border border-neutral-700 p-3 min-h-24"
-          />
+          <div>
+            <label className="block mb-2 text-sm text-neutral-400">
+              Product Description
+            </label>
+            <textarea
+              value={newProduct.description}
+              onChange={(event) =>
+                setNewProduct({
+                  ...newProduct,
+                  description: event.target.value,
+                })
+              }
+              className="w-full rounded-xl bg-neutral-800 border border-neutral-700 p-3 min-h-24"
+            />
+          </div>
 
-          <input
-            type="number"
-            step="0.01"
-            value={newProduct.price}
-            onChange={(event) =>
-              setNewProduct({
-                ...newProduct,
-                price: Number(event.target.value),
-              })
-            }
-            placeholder="Price"
-            className="w-full rounded-xl bg-neutral-800 border border-neutral-700 p-3"
-          />
+          <div>
+            <label className="block mb-2 text-sm text-neutral-400">
+              Price (£)
+            </label>
+            <input
+              type="number"
+              step="0.01"
+              value={newProduct.price}
+              onChange={(event) =>
+                setNewProduct({
+                  ...newProduct,
+                  price: Number(event.target.value),
+                })
+              }
+              className="w-full rounded-xl bg-neutral-800 border border-neutral-700 p-3"
+            />
+          </div>
 
-<div>
-  <label className="block mb-2 text-sm">
-    Product Image
-  </label>
+          <div>
+            <label className="block mb-2 text-sm text-neutral-400">
+              Product Image
+            </label>
 
-  <input
-    type="file"
-    accept="image/*"
-    onChange={async (event) => {
-      const file = event.target.files?.[0]
+            <input
+              type="file"
+              accept="image/*"
+              onChange={async (event) => {
+                const file = event.target.files?.[0]
+                if (!file) return
 
-      if (!file) return
+                const url = await uploadImage(file)
 
-      const url = await uploadImage(file)
+                if (url) {
+                  setNewProduct({
+                    ...newProduct,
+                    image_url: url,
+                  })
+                }
+              }}
+              className="w-full rounded-xl bg-neutral-800 border border-neutral-700 p-3"
+            />
 
-      if (url) {
-        setNewProduct({
-          ...newProduct,
-          image_url: url,
-        })
-      }
-    }}
-    className="w-full rounded-xl bg-neutral-800 border border-neutral-700 p-3"
-  />
+            {uploading && (
+              <p className="text-sm text-neutral-400 mt-2">
+                Uploading image...
+              </p>
+            )}
 
-  {uploading && (
-    <p className="text-sm text-neutral-400 mt-2">
-      Uploading image...
-    </p>
-  )}
+            {newProduct.image_url && (
+              <img
+                src={newProduct.image_url}
+                alt="Preview"
+                className="mt-3 h-40 w-full rounded-xl object-cover bg-neutral-800"
+              />
+            )}
+          </div>
 
-  {newProduct.image_url && (
-    <img
-      src={newProduct.image_url}
-      alt="Preview"
-      className="mt-3 h-40 w-full rounded-xl object-cover bg-neutral-800"
-    />
-  )}
-</div>
+          <div>
+            <label className="block mb-2 text-sm text-neutral-400">
+              Category
+            </label>
+            <input
+              type="text"
+              value={newProduct.category}
+              onChange={(event) =>
+                setNewProduct({
+                  ...newProduct,
+                  category: event.target.value,
+                })
+              }
+              className="w-full rounded-xl bg-neutral-800 border border-neutral-700 p-3"
+            />
+          </div>
 
-          <input
-            type="text"
-            value={newProduct.category}
-            onChange={(event) =>
-              setNewProduct({
-                ...newProduct,
-                category: event.target.value,
-              })
-            }
-            placeholder="Category"
-            className="w-full rounded-xl bg-neutral-800 border border-neutral-700 p-3"
-          />
+          <div>
+            <label className="block mb-2 text-sm text-neutral-400">SKU</label>
+            <input
+              type="text"
+              value={newProduct.sku}
+              onChange={(event) =>
+                setNewProduct({
+                  ...newProduct,
+                  sku: event.target.value,
+                })
+              }
+              className="w-full rounded-xl bg-neutral-800 border border-neutral-700 p-3"
+            />
+          </div>
 
-          <input
-            type="text"
-            value={newProduct.sku}
-            onChange={(event) =>
-              setNewProduct({
-                ...newProduct,
-                sku: event.target.value,
-              })
-            }
-            placeholder="SKU"
-            className="w-full rounded-xl bg-neutral-800 border border-neutral-700 p-3"
-          />
+          <div>
+            <label className="block mb-2 text-sm text-neutral-400">
+              Stock Quantity
+            </label>
+            <input
+              type="number"
+              value={newProduct.stock_quantity}
+              onChange={(event) =>
+                setNewProduct({
+                  ...newProduct,
+                  stock_quantity: Number(event.target.value),
+                })
+              }
+              className="w-full rounded-xl bg-neutral-800 border border-neutral-700 p-3"
+            />
+          </div>
 
-          <input
-            type="number"
-            value={newProduct.stock_quantity}
-            onChange={(event) =>
-              setNewProduct({
-                ...newProduct,
-                stock_quantity: Number(event.target.value),
-              })
-            }
-            placeholder="Stock quantity"
-            className="w-full rounded-xl bg-neutral-800 border border-neutral-700 p-3"
-          />
-
-          <input
-            type="number"
-            value={newProduct.sort_order}
-            onChange={(event) =>
-              setNewProduct({
-                ...newProduct,
-                sort_order: Number(event.target.value),
-              })
-            }
-            placeholder="Sort order"
-            className="w-full rounded-xl bg-neutral-800 border border-neutral-700 p-3"
-          />
+          <div>
+            <label className="block mb-2 text-sm text-neutral-400">
+              Sort Order
+            </label>
+            <input
+              type="number"
+              value={newProduct.sort_order}
+              onChange={(event) =>
+                setNewProduct({
+                  ...newProduct,
+                  sort_order: Number(event.target.value),
+                })
+              }
+              className="w-full rounded-xl bg-neutral-800 border border-neutral-700 p-3"
+            />
+          </div>
 
           <label className="flex items-center gap-3 text-sm">
             <input
@@ -458,130 +481,153 @@ async function uploadImage(file: File) {
             )}
 
             <div className="space-y-3">
-              <input
-                type="text"
-                value={product.name}
-                onChange={(event) =>
-                  updateLocalProduct(product.id, 'name', event.target.value)
-                }
-                placeholder="Product name"
-                className="w-full rounded-xl bg-neutral-800 border border-neutral-700 p-3"
-              />
+              <div>
+                <label className="block mb-2 text-sm text-neutral-400">
+                  Product Name
+                </label>
+                <input
+                  type="text"
+                  value={product.name}
+                  onChange={(event) =>
+                    updateLocalProduct(product.id, 'name', event.target.value)
+                  }
+                  className="w-full rounded-xl bg-neutral-800 border border-neutral-700 p-3"
+                />
+              </div>
 
-              <textarea
-                value={product.description || ''}
-                onChange={(event) =>
-                  updateLocalProduct(
-                    product.id,
-                    'description',
-                    event.target.value
-                  )
-                }
-                placeholder="Product description"
-                className="w-full rounded-xl bg-neutral-800 border border-neutral-700 p-3 min-h-24"
-              />
+              <div>
+                <label className="block mb-2 text-sm text-neutral-400">
+                  Product Description
+                </label>
+                <textarea
+                  value={product.description || ''}
+                  onChange={(event) =>
+                    updateLocalProduct(
+                      product.id,
+                      'description',
+                      event.target.value
+                    )
+                  }
+                  className="w-full rounded-xl bg-neutral-800 border border-neutral-700 p-3 min-h-24"
+                />
+              </div>
 
-              <input
-                type="number"
-                step="0.01"
-                value={product.price}
-                onChange={(event) =>
-                  updateLocalProduct(
-                    product.id,
-                    'price',
-                    Number(event.target.value)
-                  )
-                }
-                placeholder="Price"
-                className="w-full rounded-xl bg-neutral-800 border border-neutral-700 p-3"
-              />
+              <div>
+                <label className="block mb-2 text-sm text-neutral-400">
+                  Price (£)
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={product.price}
+                  onChange={(event) =>
+                    updateLocalProduct(
+                      product.id,
+                      'price',
+                      Number(event.target.value)
+                    )
+                  }
+                  className="w-full rounded-xl bg-neutral-800 border border-neutral-700 p-3"
+                />
+              </div>
 
-<div>
-  <label className="block mb-2 text-sm">
-    Product Image
-  </label>
+              <div>
+                <label className="block mb-2 text-sm text-neutral-400">
+                  Product Image
+                </label>
 
-  <input
-    type="file"
-    accept="image/*"
-    onChange={async (event) => {
-      const file = event.target.files?.[0]
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={async (event) => {
+                    const file = event.target.files?.[0]
+                    if (!file) return
 
-      if (!file) return
+                    const url = await uploadImage(file)
 
-      const url = await uploadImage(file)
+                    if (url) {
+                      updateLocalProduct(product.id, 'image_url', url)
+                    }
+                  }}
+                  className="w-full rounded-xl bg-neutral-800 border border-neutral-700 p-3"
+                />
 
-      if (url) {
-        updateLocalProduct(
-          product.id,
-          'image_url',
-          url
-        )
-      }
-    }}
-    className="w-full rounded-xl bg-neutral-800 border border-neutral-700 p-3"
-  />
+                {product.image_url && (
+                  <img
+                    src={product.image_url}
+                    alt={product.name}
+                    className="mt-3 h-40 w-full rounded-xl object-cover bg-neutral-800"
+                  />
+                )}
+              </div>
 
-  {product.image_url && (
-    <img
-      src={product.image_url}
-      alt={product.name}
-      className="mt-3 h-40 w-full rounded-xl object-cover bg-neutral-800"
-    />
-  )}
-</div>
+              <div>
+                <label className="block mb-2 text-sm text-neutral-400">
+                  Category
+                </label>
+                <input
+                  type="text"
+                  value={product.category || ''}
+                  onChange={(event) =>
+                    updateLocalProduct(
+                      product.id,
+                      'category',
+                      event.target.value
+                    )
+                  }
+                  className="w-full rounded-xl bg-neutral-800 border border-neutral-700 p-3"
+                />
+              </div>
 
-              <input
-                type="text"
-                value={product.category || ''}
-                onChange={(event) =>
-                  updateLocalProduct(
-                    product.id,
-                    'category',
-                    event.target.value
-                  )
-                }
-                placeholder="Category"
-                className="w-full rounded-xl bg-neutral-800 border border-neutral-700 p-3"
-              />
+              <div>
+                <label className="block mb-2 text-sm text-neutral-400">
+                  SKU
+                </label>
+                <input
+                  type="text"
+                  value={product.sku || ''}
+                  onChange={(event) =>
+                    updateLocalProduct(product.id, 'sku', event.target.value)
+                  }
+                  className="w-full rounded-xl bg-neutral-800 border border-neutral-700 p-3"
+                />
+              </div>
 
-              <input
-                type="text"
-                value={product.sku || ''}
-                onChange={(event) =>
-                  updateLocalProduct(product.id, 'sku', event.target.value)
-                }
-                placeholder="SKU"
-                className="w-full rounded-xl bg-neutral-800 border border-neutral-700 p-3"
-              />
+              <div>
+                <label className="block mb-2 text-sm text-neutral-400">
+                  Stock Quantity
+                </label>
+                <input
+                  type="number"
+                  value={product.stock_quantity || 0}
+                  onChange={(event) =>
+                    updateLocalProduct(
+                      product.id,
+                      'stock_quantity',
+                      Number(event.target.value)
+                    )
+                  }
+                  className="w-full rounded-xl bg-neutral-800 border border-neutral-700 p-3"
+                />
+              </div>
 
-              <input
-                type="number"
-                value={product.stock_quantity || 0}
-                onChange={(event) =>
-                  updateLocalProduct(
-                    product.id,
-                    'stock_quantity',
-                    Number(event.target.value)
-                  )
-                }
-                placeholder="Stock quantity"
-                className="w-full rounded-xl bg-neutral-800 border border-neutral-700 p-3"
-              />
-
-              <input
-                type="number"
-                value={product.sort_order || 0}
-                onChange={(event) =>
-                  updateLocalProduct(
-                    product.id,
-                    'sort_order',
-                    Number(event.target.value)
-                  )
-                }
-                placeholder="Sort order"
-                className="w-full rounded-xl bg-neutral-800 border border-neutral-700 p-3"
-              />
+              <div>
+                <label className="block mb-2 text-sm text-neutral-400">
+                  Sort Order
+                </label>
+                <input
+                  type="number"
+                  value={product.sort_order || 0}
+                  onChange={(event) =>
+                    updateLocalProduct(
+                      product.id,
+                      'sort_order',
+                      Number(event.target.value)
+                    )
+                  }
+                  className="w-full rounded-xl bg-neutral-800 border border-neutral-700 p-3"
+                />
+              </div>
 
               <label className="flex items-center gap-3 text-sm">
                 <input

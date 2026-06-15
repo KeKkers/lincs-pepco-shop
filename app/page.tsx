@@ -55,11 +55,13 @@ export default function Home() {
 
   useEffect(() => {
     async function loadProducts() {
-      const { data, error } = await supabase
-        .from('products')
-        .select('*')
-        .eq('active', true)
-        .order('id')
+const { data, error } = await supabase
+  .from('products')
+  .select('*')
+  .eq('active', true)
+  .gt('stock_quantity', 0)
+  .order('sort_order', { ascending: true })
+  .order('id', { ascending: true })
 
       if (error) {
         console.error(error)

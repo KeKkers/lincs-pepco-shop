@@ -149,6 +149,18 @@ export async function POST(request: Request) {
           { status: 500 }
         )
       }
+
+const { error: stockError } = await supabaseAdmin.rpc(
+  'decrement_stock',
+  {
+    p_product_id: item.product_id,
+    p_quantity: item.quantity,
+  }
+)
+
+if (stockError) {
+  console.error('Stock decrement failed:', stockError)
+}
     }
   }
 
