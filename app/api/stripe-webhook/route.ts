@@ -38,26 +38,40 @@ export async function POST(request: Request) {
     const basket = JSON.parse(session.metadata?.basket || '[]')
 
     const telegramUserId = Number(session.metadata?.telegram_user_id || 0)
+const telegramUserId = Number(
+  session.metadata?.telegram_user_id || 0
+)
 
-    const customerName =
-      [
-        session.metadata?.telegram_first_name,
-        session.metadata?.telegram_last_name,
-      ]
-        .filter(Boolean)
-        .join(' ') ||
-      session.customer_details?.name ||
-      'Stripe customer'
+const telegramUsername =
+  session.metadata?.telegram_username || null
 
-    for (const item of basket) {
-      const { error } = await supabaseAdmin.from('orders').insert({
-        telegram_user_id: telegramUserId,
-        customer_name: customerName,
-        product_id: item.product_id,
-        quantity: item.quantity,
-        total_price: Number(item.price) * Number(item.quantity),
-        status: 'Paid',
-      })
+const telegramFirstName =
+  session.metadata?.telegram_first_name || null
+
+const telegramLastName =
+  session.metadata?.telegram_last_name || null
+
+const customerName =
+  [telegramFirstName, telegramLastName]
+    .filter(Boolean)
+    .join(' ') ||
+  session.customer_details?.name ||
+  'Stripe customer'
+
+const { error } = await supabaseAdmin
+  .from('orders')
+  .insert({
+    telegram_user_id: telegramUserId,
+    telegram_username: telegramUsername,
+    telegram_first_name: telegramFirstName,
+    telegram_last_name: telegramLastName,
+    customer_name: customerName,
+    product_id: item.product_id,
+    quantity: item.quantity,
+    total_price:
+      Number(item.price) * Number(item.quantity),
+    status: 'Paid',
+  })
 
       if (error) {
         console.error('Supabase order insert failed:', error)
