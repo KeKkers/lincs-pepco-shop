@@ -46,11 +46,19 @@ export default function Home() {
 
     loadProducts()
 
-    if (window.Telegram?.WebApp?.initDataUnsafe?.user) {
-      setTelegramUser(window.Telegram.WebApp.initDataUnsafe.user)
-    }
+const tg = window.Telegram?.WebApp
 
-    window.Telegram?.WebApp?.ready()
+if (tg) {
+  tg.ready()
+  tg.expand()
+
+  if (tg.initDataUnsafe?.user) {
+    setTelegramUser(tg.initDataUnsafe.user)
+    console.log('Telegram user:', tg.initDataUnsafe.user)
+  } else {
+    console.log('No Telegram user found')
+  }
+}
   }, [])
 
   function addToBasket(product: Product) {
