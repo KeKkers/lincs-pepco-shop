@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import { QRCodeSVG } from 'qrcode.react'
 
 declare global {
   interface Window {
@@ -23,6 +24,7 @@ type Order = {
   carrier: string | null
   tracking_number: string | null
   created_at: string
+customer_shipping_reference: string | null
   products?: {
     name: string
   } | null
@@ -166,6 +168,31 @@ export default function OrdersPage() {
                   <strong>Tracking:</strong> {order.tracking_number}
                 </p>
               )}
+
+{order.tracking_number && (
+  <p>
+    <strong>Tracking:</strong> {order.tracking_number}
+  </p>
+)}
+
+{order.customer_shipping_reference && (
+  <div className="mt-4">
+    <p className="mb-2">
+      <strong>InPost QR Code</strong>
+    </p>
+
+    <div className="rounded-xl bg-white p-4 inline-block">
+      <QRCodeSVG
+        value={order.customer_shipping_reference}
+        size={180}
+      />
+    </div>
+
+    <p className="text-xs text-neutral-400 mt-2">
+      Ref: {order.customer_shipping_reference}
+    </p>
+  </div>
+)}
             </div>
           </div>
         ))}

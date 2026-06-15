@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import { QRCodeSVG } from 'qrcode.react'
+
 
 declare global {
   interface Window {
@@ -509,6 +511,15 @@ export default function AdminPage() {
                     <label className="text-sm text-neutral-400">
                       Customer InPost Reference / QR Notes
                     </label>
+
+{order.customer_shipping_reference && (
+  <div className="mt-4 rounded-xl bg-white p-4 flex justify-center">
+    <QRCodeSVG
+      value={order.customer_shipping_reference}
+      size={180}
+    />
+  </div>
+)}
 
                     <input
                       type="text"
