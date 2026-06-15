@@ -11,6 +11,7 @@ declare global {
 
 type Order = {
   id: number
+  product_id: number
   telegram_user_id: number
   order_reference: string | null
   customer_name: string | null
@@ -24,6 +25,11 @@ type Order = {
   carrier: string | null
   tracking_number: string | null
   notes: string | null
+  shipping_method: string | null
+  customer_shipping_reference: string | null
+  customer_shipping_notes: string | null
+  shipping_paid_by: string | null
+  dropoff_status: string | null
   created_at: string
   products?: {
     name: string
@@ -41,9 +47,31 @@ const statuses = [
   'Refunded',
 ]
 
+const shippingMethods = [
+  '',
+  'Customer InPost',
+  'Royal Mail Click & Drop',
+  'Collection',
+  'Other',
+]
+
+const shippingPaidByOptions = [
+  'seller',
+  'customer',
+]
+
+const dropoffStatuses = [
+  'Not Ready',
+  'Ready for Drop-off',
+  'Dropped Off',
+  'In Transit',
+  'Delivered',
+]
+
 const carriers = [
   '',
   'Royal Mail',
+  'InPost',
   'Evri',
   'DPD',
   'Yodel',
@@ -140,6 +168,18 @@ export default function AdminPage() {
       message += `Expected dispatch: ${order.expected_dispatch_date}\n`
     }
 
+    if (order.shipping_method) {
+      message += `Shipping method: ${order.shipping_method}\n`
+    }
+
+    if (order.shipping_paid_by) {
+      message += `Shipping paid by: ${order.shipping_paid_by}\n`
+    }
+
+    if (order.dropoff_status) {
+      message += `Drop-off status: ${order.dropoff_status}\n`
+    }
+
     if (order.dispatch_date) {
       message += `Dispatch date: ${order.dispatch_date}\n`
     }
@@ -150,6 +190,10 @@ export default function AdminPage() {
 
     if (order.tracking_number) {
       message += `Tracking: ${order.tracking_number}\n`
+    }
+
+    if (order.customer_shipping_reference) {
+      message += `Customer shipping reference: ${order.customer_shipping_reference}\n`
     }
 
     message += `\nThank you for shopping with Lincs Pep Co.`
@@ -188,6 +232,13 @@ export default function AdminPage() {
         dispatch_date: order.dispatch_date || null,
         expected_dispatch_date: order.expected_dispatch_date || null,
         notes: order.notes || null,
+        shipping_method: order.shipping_method || null,
+        customer_shipping_reference:
+          order.customer_shipping_reference || null,
+        customer_shipping_notes:
+          order.customer_shipping_notes || null,
+        shipping_paid_by: order.shipping_paid_by || null,
+        dropoff_status: order.dropoff_status || null,
       })
       .eq('id', order.id)
 
@@ -230,7 +281,8 @@ export default function AdminPage() {
       <h1 className="text-2xl font-bold mb-2">Lincs Pep Co Admin</h1>
 
       <p className="text-neutral-400 mb-6">
-        Manage orders, production status and dispatch details.
+        Manage orders, production status, customer shipping and dispatch
+        details.
       </p>
 
       <button
@@ -275,7 +327,7 @@ export default function AdminPage() {
 
               <p>
                 <strong>Product:</strong>{' '}
-                {order.products?.name || `Product #${order.id}`}
+                {order.products?.name || `Product #${order.product_id}`}
               </p>
 
               <p>
@@ -333,57 +385,184 @@ export default function AdminPage() {
                 />
               </div>
 
-              <div>
-                <label className="text-sm text-neutral-400">Carrier</label>
+              <div className="rounded-xl border border-neutral-800 p-3">
+                <h3 className="font-semibold mb-3">Shipping</h3>
 
-                <select
-                  value={order.carrier || ''}
-                  onChange={(event) =>
-                    updateLocalOrder(order.id, 'carrier', event.target.value)
-                  }
-                  className="mt-2 w-full rounded-xl bg-neutral-800 border border-neutral-700 p-3"
-                >
-                  {carriers.map((carrier) => (
-                    <option key={carrier || 'blank'} value={carrier}>
-                      {carrier || 'Not selected'}
-                    </option>
-                  ))}
-                </select>
-              </div>
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-sm text-neutral-400">
+                      Shipping Method
+                    </label>
 
-              <div>
-                <label className="text-sm text-neutral-400">
-                  Tracking Number
-                </label>
+                    <select
+                      value={order.shipping_method || ''}
+                      onChange={(event) =>
+                        updateLocalOrder(
+                          order.id,
+                          'shipping_method',
+                          event.target.value
+                        )
+                      }
+                      className="mt-2 w-full rounded-xl bg-neutral-800 border border-neutral-700 p-3"
+                    >
+                      {shippingMethods.map((method) => (
+                        <option key={method || 'blank'} value={method}>
+                          {method || 'Not selected'}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
 
-                <input
-                  type="text"
-                  value={order.tracking_number || ''}
-                  onChange={(event) =>
-                    updateLocalOrder(
-                      order.id,
-                      'tracking_number',
-                      event.target.value
-                    )
-                  }
-                  placeholder="e.g. RM123456789GB"
-                  className="mt-2 w-full rounded-xl bg-neutral-800 border border-neutral-700 p-3"
-                />
-              </div>
+                  <div>
+                    <label className="text-sm text-neutral-400">
+                      Shipping Paid By
+                    </label>
 
-              <div>
-                <label className="text-sm text-neutral-400">
-                  Dispatch Date
-                </label>
+                    <select
+                      value={order.shipping_paid_by || 'seller'}
+                      onChange={(event) =>
+                        updateLocalOrder(
+                          order.id,
+                          'shipping_paid_by',
+                          event.target.value
+                        )
+                      }
+                      className="mt-2 w-full rounded-xl bg-neutral-800 border border-neutral-700 p-3"
+                    >
+                      {shippingPaidByOptions.map((option) => (
+                        <option key={option} value={option}>
+                          {option}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
 
-                <input
-                  type="date"
-                  value={order.dispatch_date || ''}
-                  onChange={(event) =>
-                    updateLocalOrder(order.id, 'dispatch_date', event.target.value)
-                  }
-                  className="mt-2 w-full rounded-xl bg-neutral-800 border border-neutral-700 p-3"
-                />
+                  <div>
+                    <label className="text-sm text-neutral-400">
+                      Drop-off Status
+                    </label>
+
+                    <select
+                      value={order.dropoff_status || 'Not Ready'}
+                      onChange={(event) =>
+                        updateLocalOrder(
+                          order.id,
+                          'dropoff_status',
+                          event.target.value
+                        )
+                      }
+                      className="mt-2 w-full rounded-xl bg-neutral-800 border border-neutral-700 p-3"
+                    >
+                      {dropoffStatuses.map((status) => (
+                        <option key={status} value={status}>
+                          {status}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="text-sm text-neutral-400">
+                      Carrier
+                    </label>
+
+                    <select
+                      value={order.carrier || ''}
+                      onChange={(event) =>
+                        updateLocalOrder(
+                          order.id,
+                          'carrier',
+                          event.target.value
+                        )
+                      }
+                      className="mt-2 w-full rounded-xl bg-neutral-800 border border-neutral-700 p-3"
+                    >
+                      {carriers.map((carrier) => (
+                        <option key={carrier || 'blank'} value={carrier}>
+                          {carrier || 'Not selected'}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="text-sm text-neutral-400">
+                      Tracking Number
+                    </label>
+
+                    <input
+                      type="text"
+                      value={order.tracking_number || ''}
+                      onChange={(event) =>
+                        updateLocalOrder(
+                          order.id,
+                          'tracking_number',
+                          event.target.value
+                        )
+                      }
+                      placeholder="e.g. RM123456789GB"
+                      className="mt-2 w-full rounded-xl bg-neutral-800 border border-neutral-700 p-3"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-sm text-neutral-400">
+                      Customer InPost Reference / QR Notes
+                    </label>
+
+                    <input
+                      type="text"
+                      value={order.customer_shipping_reference || ''}
+                      onChange={(event) =>
+                        updateLocalOrder(
+                          order.id,
+                          'customer_shipping_reference',
+                          event.target.value
+                        )
+                      }
+                      placeholder="Customer-provided InPost reference or QR note"
+                      className="mt-2 w-full rounded-xl bg-neutral-800 border border-neutral-700 p-3"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-sm text-neutral-400">
+                      Customer Shipping Notes
+                    </label>
+
+                    <textarea
+                      value={order.customer_shipping_notes || ''}
+                      onChange={(event) =>
+                        updateLocalOrder(
+                          order.id,
+                          'customer_shipping_notes',
+                          event.target.value
+                        )
+                      }
+                      placeholder="Any customer-supplied shipping instructions..."
+                      className="mt-2 w-full rounded-xl bg-neutral-800 border border-neutral-700 p-3 min-h-20"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-sm text-neutral-400">
+                      Dispatch Date
+                    </label>
+
+                    <input
+                      type="date"
+                      value={order.dispatch_date || ''}
+                      onChange={(event) =>
+                        updateLocalOrder(
+                          order.id,
+                          'dispatch_date',
+                          event.target.value
+                        )
+                      }
+                      className="mt-2 w-full rounded-xl bg-neutral-800 border border-neutral-700 p-3"
+                    />
+                  </div>
+                </div>
               </div>
 
               <div>
@@ -406,7 +585,9 @@ export default function AdminPage() {
                 disabled={savingOrderId === order.id}
                 className="w-full rounded-xl bg-white text-black py-3 font-semibold disabled:opacity-50"
               >
-                {savingOrderId === order.id ? 'Saving...' : 'Save & Notify Customer'}
+                {savingOrderId === order.id
+                  ? 'Saving...'
+                  : 'Save & Notify Customer'}
               </button>
             </div>
           </div>
