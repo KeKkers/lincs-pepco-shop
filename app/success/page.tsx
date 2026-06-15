@@ -86,6 +86,13 @@ export default function SuccessPage() {
         Thank you. Your order has been received.
       </p>
 
+	<a
+  href="/"
+  className="block mb-4 rounded-xl bg-neutral-800 border border-neutral-700 text-center py-3 font-semibold"
+>
+  Back to Shop
+</a>
+
       {order && (
         <div className="rounded-2xl bg-neutral-900 border border-neutral-800 p-4 mb-6">
           <p>

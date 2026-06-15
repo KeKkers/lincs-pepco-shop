@@ -108,6 +108,13 @@ export default function OrdersPage() {
         View your order status, dispatch information and tracking details.
       </p>
 
+	<a
+  href="/"
+  className="block mb-4 rounded-xl bg-neutral-800 border border-neutral-700 text-center py-3 font-semibold"
+>
+  Back to Shop
+</a>
+
       {orders.length === 0 && (
         <div className="rounded-2xl bg-neutral-900 border border-neutral-800 p-4">
           <p>You do not have any orders yet.</p>
