@@ -124,6 +124,14 @@ export default function Home() {
       <p className="text-neutral-300 mb-6">
         Custom 3D printed products, personalised items and bespoke designs.
       </p>
+
+<a
+  href="/orders"
+  className="block mb-4 rounded-xl bg-neutral-800 border border-neutral-700 text-center py-3 font-semibold"
+>
+  My Orders
+</a>
+
 <a
   href="/admin"
   className="block mb-6 rounded-xl bg-neutral-800 border border-neutral-700 text-center py-3 font-semibold"
