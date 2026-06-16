@@ -14,6 +14,24 @@ function getExpectedDispatchDate() {
   return date.toISOString().split('T')[0]
 }
 
+async function notifyAdmin(message: string) {
+  const botToken = process.env.TELEGRAM_BOT_TOKEN
+  const adminUserId = process.env.ADMIN_TELEGRAM_USER_ID
+
+  if (!botToken || !adminUserId) return
+
+  await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      chat_id: adminUserId,
+      text: message,
+    }),
+  })
+}
+
 async function decrementStock(item: any) {
   if (item.variant_id) {
     const { error } = await supabaseAdmin.rpc('decrement_variant_stock', {
@@ -194,6 +212,25 @@ const shippingAddress = shippingDetails?.address || null
       }
 
       await decrementStock(item)
+
+	
+	await notifyAdmin(
+  `🛒 NEW SALE
+
+Order: ${orderReference}
+
+Customer: ${customerName}
+
+Product ID: ${item.product_id}
+
+Qty: ${item.quantity}
+
+Total: £${orderTotal.toFixed(2)}
+
+Shipping: ${
+    shippingService || shippingMethod || 'Not selected'
+  }`
+)
     }
   }
 
