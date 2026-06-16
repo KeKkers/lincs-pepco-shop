@@ -16,6 +16,18 @@ type ProductImage = {
   sort_order: number | null
 }
 
+type ProductVariant = {
+  id: number
+  product_id: number
+  variant_name: string
+  variant_value: string
+  sku: string | null
+  price_override: number | null
+  stock_quantity: number | null
+  active: boolean
+}
+
+
 type Product = {
   id: number
   name: string
@@ -28,7 +40,10 @@ type Product = {
   sku: string | null
   sort_order: number | null
   product_images?: ProductImage[]
+  product_variants?: ProductVariant[]
 }
+
+
 
 const blankProduct = {
   name: '',
@@ -42,6 +57,15 @@ const blankProduct = {
   sort_order: 0,
 }
 
+const blankVariant = {
+  variant_name: 'Colour',
+  variant_value: '',
+  sku: '',
+  price_override: '',
+  stock_quantity: 0,
+  active: true,
+}
+
 export default function ProductAdminPage() {
   const [products, setProducts] = useState<Product[]>([])
   const [newProduct, setNewProduct] = useState(blankProduct)
@@ -51,6 +75,11 @@ export default function ProductAdminPage() {
   const [telegramUserId, setTelegramUserId] = useState<number | null>(null)
   const [savingId, setSavingId] = useState<number | null>(null)
   const [uploading, setUploading] = useState(false)
+const [newVariantByProduct, setNewVariantByProduct] = useState<
+  Record<number, typeof blankVariant>
+>({})
+
+
 
   useEffect(() => {
     async function init() {
