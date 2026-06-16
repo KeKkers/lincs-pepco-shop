@@ -614,13 +614,31 @@ const filteredOrders =
 
                     <select
                       value={order.dropoff_status || 'Not Ready'}
-                      onChange={(event) =>
-                        updateLocalOrder(
-                          order.id,
-                          'dropoff_status',
-                          event.target.value
-                        )
-                      }
+                      onChange={(event) => {
+  const value = event.target.value
+
+  updateLocalOrder(
+    order.id,
+    'dropoff_status',
+    value
+  )
+
+  if (value === 'Dropped Off') {
+    updateLocalOrder(
+      order.id,
+      'status',
+      'Dispatched'
+    )
+  }
+
+  if (value === 'Delivered') {
+    updateLocalOrder(
+      order.id,
+      'status',
+      'Delivered'
+    )
+  }
+}}
                       className="mt-2 w-full rounded-xl bg-neutral-800 border border-neutral-700 p-3"
                     >
                       {dropoffStatuses.map((status) => (
