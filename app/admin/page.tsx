@@ -31,6 +31,12 @@ type Order = {
   shipping_paid_by: string | null
   shipping_cost: number | null
   shipping_service: string | null
+  shipping_name: string | null
+  shipping_address_line1: string | null
+  shipping_address_line2: string | null
+  shipping_city: string | null
+  shipping_postcode: string | null
+  shipping_country: string | null
   created_at: string
   products?: {
     name: string
@@ -238,6 +244,36 @@ export default function AdminPage() {
           : order
       )
     )
+  }
+
+  function formatShippingAddress(order: Order) {
+    return [
+      order.shipping_name,
+      order.shipping_address_line1,
+      order.shipping_address_line2,
+      order.shipping_city,
+      order.shipping_postcode,
+      order.shipping_country,
+    ]
+      .filter(Boolean)
+      .join('\n')
+  }
+
+  async function copyShippingAddress(order: Order) {
+    const address = formatShippingAddress(order)
+
+    if (!address) {
+      alert('No shipping address available to copy.')
+      return
+    }
+
+    try {
+      await navigator.clipboard.writeText(address)
+      alert('Shipping address copied.')
+    } catch (error) {
+      console.error(error)
+      alert('Unable to copy address. You may need to copy it manually.')
+    }
   }
 
   function buildCustomerMessage(order: Order) {
@@ -497,6 +533,32 @@ export default function AdminPage() {
                 {Number(order.shipping_cost || 0).toFixed(2)}
               </p>
             </div>
+
+            {(order.shipping_name ||
+              order.shipping_address_line1 ||
+              order.shipping_postcode) && (
+              <div className="mt-4 rounded-xl bg-neutral-800 border border-neutral-700 p-3 text-sm">
+                <p className="font-semibold mb-2">Shipping Address</p>
+
+                {order.shipping_name && <p>{order.shipping_name}</p>}
+                {order.shipping_address_line1 && (
+                  <p>{order.shipping_address_line1}</p>
+                )}
+                {order.shipping_address_line2 && (
+                  <p>{order.shipping_address_line2}</p>
+                )}
+                {order.shipping_city && <p>{order.shipping_city}</p>}
+                {order.shipping_postcode && <p>{order.shipping_postcode}</p>}
+                {order.shipping_country && <p>{order.shipping_country}</p>}
+
+                <button
+                  onClick={() => copyShippingAddress(order)}
+                  className="mt-3 w-full rounded-xl bg-white text-black py-2 font-semibold"
+                >
+                  Copy Address
+                </button>
+              </div>
+            )}
 
             <div className="mt-4 space-y-3">
               <div>
