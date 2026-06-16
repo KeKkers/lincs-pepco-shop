@@ -2,8 +2,6 @@
 
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { QRCodeSVG } from 'qrcode.react'
-
 
 declare global {
   interface Window {
@@ -20,8 +18,6 @@ type Order = {
   telegram_username: string | null
   status: string
   quantity: number
-shipping_cost: number | null
-shipping_service: string | null
   total_price: number
   order_total: number | null
   expected_dispatch_date: string | null
@@ -34,10 +30,28 @@ shipping_service: string | null
   customer_shipping_notes: string | null
   shipping_paid_by: string | null
   dropoff_status: string | null
+  shipping_cost: number | null
+  shipping_service: string | null
   created_at: string
   products?: {
     name: string
   } | null
+}
+
+type Product = {
+  id: number
+  name: string
+  stock_quantity: number | null
+  active: boolean
+}
+
+type DashboardStats = {
+  todayRevenue: number
+  paidOrders: number
+  awaitingDispatch: number
+  inProduction: number
+  lowStock: number
+  outOfStock: number
 }
 
 const statuses = [
@@ -59,10 +73,7 @@ const shippingMethods = [
   'Other',
 ]
 
-const shippingPaidByOptions = [
-  'seller',
-  'customer',
-]
+const shippingPaidByOptions = ['seller', 'customer']
 
 const dropoffStatuses = [
   'Not Ready',
@@ -86,6 +97,15 @@ const carriers = [
 
 export default function AdminPage() {
   const [orders, setOrders] = useState<Order[]>([])
+  const [products, setProducts] = useState<Product[]>([])
+  const [stats, setStats] = useState<DashboardStats>({
+    todayRevenue: 0,
+    paidOrders: 0,
+    awaitingDispatch: 0,
+    inProduction: 0,
+    lowStock: 0,
+    outOfStock: 0,
+  })
   const [isAdmin, setIsAdmin] = useState(false)
   const [loading, setLoading] = useState(true)
   const [telegramUserId, setTelegramUserId] = useState<number | null>(null)
@@ -118,12 +138,16 @@ export default function AdminPage() {
       }
 
       setIsAdmin(true)
-      await loadOrders()
+      await loadDashboard()
       setLoading(false)
     }
 
     initAdmin()
   }, [])
+
+  async function loadDashboard() {
+    await Promise.all([loadOrders(), loadProducts()])
+  }
 
   async function loadOrders() {
     const { data, error } = await supabase
@@ -141,7 +165,66 @@ export default function AdminPage() {
       return
     }
 
-    setOrders(data || [])
+    const loadedOrders = data || []
+    setOrders(loadedOrders)
+    calculateStats(loadedOrders, products)
+  }
+
+  async function loadProducts() {
+    const { data, error } = await supabase
+      .from('products')
+      .select('id, name, stock_quantity, active')
+      .eq('active', true)
+
+    if (error) {
+      console.error(error)
+      return
+    }
+
+    const loadedProducts = data || []
+    setProducts(loadedProducts)
+    calculateStats(orders, loadedProducts)
+  }
+
+  function calculateStats(orderData: Order[], productData: Product[]) {
+    const today = new Date().toISOString().split('T')[0]
+
+    const todayRevenue = orderData
+      .filter((order) => order.created_at?.startsWith(today))
+      .filter((order) => !['Cancelled', 'Refunded'].includes(order.status))
+      .reduce(
+        (sum, order) =>
+          sum + Number(order.order_total || order.total_price || 0),
+        0
+      )
+
+    const paidOrders = orderData.filter((order) => order.status === 'Paid').length
+
+    const awaitingDispatch = orderData.filter((order) =>
+      ['Paid', 'Packed'].includes(order.status)
+    ).length
+
+    const inProduction = orderData.filter((order) =>
+      ['Printing', 'Quality Check'].includes(order.status)
+    ).length
+
+    const lowStock = productData.filter((product) => {
+      const stock = Number(product.stock_quantity || 0)
+      return stock > 0 && stock <= 3
+    }).length
+
+    const outOfStock = productData.filter(
+      (product) => Number(product.stock_quantity || 0) === 0
+    ).length
+
+    setStats({
+      todayRevenue,
+      paidOrders,
+      awaitingDispatch,
+      inProduction,
+      lowStock,
+      outOfStock,
+    })
   }
 
   function updateLocalOrder(
@@ -176,8 +259,8 @@ export default function AdminPage() {
       message += `Shipping method: ${order.shipping_method}\n`
     }
 
-    if (order.shipping_paid_by) {
-      message += `Shipping paid by: ${order.shipping_paid_by}\n`
+    if (order.shipping_service) {
+      message += `Shipping service: ${order.shipping_service}\n`
     }
 
     if (order.dropoff_status) {
@@ -237,10 +320,8 @@ export default function AdminPage() {
         expected_dispatch_date: order.expected_dispatch_date || null,
         notes: order.notes || null,
         shipping_method: order.shipping_method || null,
-        customer_shipping_reference:
-          order.customer_shipping_reference || null,
-        customer_shipping_notes:
-          order.customer_shipping_notes || null,
+        customer_shipping_reference: order.customer_shipping_reference || null,
+        customer_shipping_notes: order.customer_shipping_notes || null,
         shipping_paid_by: order.shipping_paid_by || null,
         dropoff_status: order.dropoff_status || null,
       })
@@ -255,7 +336,7 @@ export default function AdminPage() {
     }
 
     await sendTelegramNotification(order)
-    await loadOrders()
+    await loadDashboard()
   }
 
   if (loading) {
@@ -289,25 +370,59 @@ export default function AdminPage() {
         details.
       </p>
 
-<a
-  href="/admin/products"
-  className="block mb-4 w-full rounded-xl bg-neutral-800 border border-neutral-700 text-center py-3 font-semibold"
->
-  Manage Products
-</a>
+      <a
+        href="/"
+        className="block mb-4 rounded-xl bg-neutral-800 border border-neutral-700 text-center py-3 font-semibold"
+      >
+        Back to Shop
+      </a>
 
-<a
-  href="/"
-  className="block mb-4 rounded-xl bg-neutral-800 border border-neutral-700 text-center py-3 font-semibold"
->
-  Back to Shop
-</a>
+      <a
+        href="/admin/products"
+        className="block mb-4 w-full rounded-xl bg-neutral-800 border border-neutral-700 text-center py-3 font-semibold"
+      >
+        Manage Products
+      </a>
+
+      <section className="grid grid-cols-2 gap-3 mb-6">
+        <div className="rounded-2xl bg-neutral-900 border border-neutral-800 p-4">
+          <p className="text-sm text-neutral-400">Today's Revenue</p>
+          <p className="text-2xl font-bold">
+            £{stats.todayRevenue.toFixed(2)}
+          </p>
+        </div>
+
+        <div className="rounded-2xl bg-neutral-900 border border-neutral-800 p-4">
+          <p className="text-sm text-neutral-400">Paid Orders</p>
+          <p className="text-2xl font-bold">{stats.paidOrders}</p>
+        </div>
+
+        <div className="rounded-2xl bg-neutral-900 border border-neutral-800 p-4">
+          <p className="text-sm text-neutral-400">Awaiting Dispatch</p>
+          <p className="text-2xl font-bold">{stats.awaitingDispatch}</p>
+        </div>
+
+        <div className="rounded-2xl bg-neutral-900 border border-neutral-800 p-4">
+          <p className="text-sm text-neutral-400">In Production</p>
+          <p className="text-2xl font-bold">{stats.inProduction}</p>
+        </div>
+
+        <div className="rounded-2xl bg-neutral-900 border border-neutral-800 p-4">
+          <p className="text-sm text-neutral-400">Low Stock</p>
+          <p className="text-2xl font-bold">{stats.lowStock}</p>
+        </div>
+
+        <div className="rounded-2xl bg-neutral-900 border border-neutral-800 p-4">
+          <p className="text-sm text-neutral-400">Out of Stock</p>
+          <p className="text-2xl font-bold">{stats.outOfStock}</p>
+        </div>
+      </section>
 
       <button
-        onClick={loadOrders}
+        onClick={loadDashboard}
         className="mb-4 w-full rounded-xl bg-white text-black py-3 font-semibold"
       >
-        Refresh Orders
+        Refresh Dashboard
       </button>
 
       <div className="space-y-4">
@@ -361,15 +476,16 @@ export default function AdminPage() {
                 <strong>Order Total:</strong> £
                 {Number(order.order_total || order.total_price).toFixed(2)}
               </p>
-		<p>
-  <strong>Shipping Service:</strong>{' '}
-  {order.shipping_service || 'Not selected'}
-</p>
 
-<p>
-  <strong>Shipping Cost:</strong> £
-  {Number(order.shipping_cost || 0).toFixed(2)}
-</p>
+              <p>
+                <strong>Shipping Service:</strong>{' '}
+                {order.shipping_service || 'Not selected'}
+              </p>
+
+              <p>
+                <strong>Shipping Cost:</strong> £
+                {Number(order.shipping_cost || 0).toFixed(2)}
+              </p>
             </div>
 
             <div className="mt-4 space-y-3">
@@ -489,9 +605,7 @@ export default function AdminPage() {
                   </div>
 
                   <div>
-                    <label className="text-sm text-neutral-400">
-                      Carrier
-                    </label>
+                    <label className="text-sm text-neutral-400">Carrier</label>
 
                     <select
                       value={order.carrier || ''}
@@ -536,15 +650,6 @@ export default function AdminPage() {
                     <label className="text-sm text-neutral-400">
                       Customer InPost Reference / QR Notes
                     </label>
-
-{order.customer_shipping_reference && (
-  <div className="mt-4 rounded-xl bg-white p-4 flex justify-center">
-    <QRCodeSVG
-      value={order.customer_shipping_reference}
-      size={180}
-    />
-  </div>
-)}
 
                     <input
                       type="text"
