@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 
 declare global {
@@ -44,6 +44,7 @@ const shippingOptions: ShippingOption[] = [
 
 export default function Home() {
   const [products, setProducts] = useState<Product[]>([])
+  const [selectedCategory, setSelectedCategory] = useState('All')
   const [basket, setBasket] = useState<BasketItem[]>([])
   const [isCheckingOut, setIsCheckingOut] = useState(false)
   const [telegramUser, setTelegramUser] = useState<any>(null)
@@ -100,7 +101,9 @@ export default function Home() {
         .eq('telegram_user_id', userId)
         .single()
 
-      if (data) setIsAdmin(true)
+      if (data) {
+        setIsAdmin(true)
+      }
     }
 
     loadProducts()
@@ -117,6 +120,22 @@ export default function Home() {
       }
     }
   }, [])
+
+  const categories = useMemo(() => {
+    const uniqueCategories = products
+      .map((product) => product.category)
+      .filter((category): category is string => Boolean(category))
+
+    return ['All', ...Array.from(new Set(uniqueCategories))]
+  }, [products])
+
+  const filteredProducts = useMemo(() => {
+    if (selectedCategory === 'All') {
+      return products
+    }
+
+    return products.filter((product) => product.category === selectedCategory)
+  }, [products, selectedCategory])
 
   function getImages(product: Product) {
     const uploadedImages = product.product_images || []
@@ -213,8 +232,26 @@ export default function Home() {
         </a>
       )}
 
+      {categories.length > 1 && (
+        <div className="mb-4 flex gap-2 overflow-x-auto pb-2">
+          {categories.map((category) => (
+            <button
+              key={category}
+              onClick={() => setSelectedCategory(category)}
+              className={`whitespace-nowrap rounded-full border px-4 py-2 text-sm ${
+                selectedCategory === category
+                  ? 'bg-white text-black border-white'
+                  : 'bg-neutral-900 text-white border-neutral-700'
+              }`}
+            >
+              {category}
+            </button>
+          ))}
+        </div>
+      )}
+
       <div className="grid gap-4">
-        {products.map((product) => {
+        {filteredProducts.map((product) => {
           const images = getImages(product)
 
           return (
@@ -245,6 +282,12 @@ export default function Home() {
                 £{Number(product.price).toFixed(2)}
               </p>
 
+              {product.category && (
+                <p className="text-xs text-neutral-500 mt-1">
+                  {product.category}
+                </p>
+              )}
+
               <button
                 onClick={() => addToBasket(product)}
                 className="mt-4 w-full rounded-xl bg-white text-black py-3 font-semibold"
@@ -255,6 +298,12 @@ export default function Home() {
           )
         })}
       </div>
+
+      {filteredProducts.length === 0 && (
+        <div className="rounded-2xl bg-neutral-900 border border-neutral-800 p-4 text-neutral-300">
+          No products found in this category.
+        </div>
+      )}
 
       {basket.length > 0 && (
         <div className="fixed bottom-0 left-0 right-0 bg-neutral-900 border-t border-neutral-800 p-4 max-h-[70vh] overflow-y-auto">
@@ -318,6 +367,13 @@ export default function Home() {
                 </option>
               ))}
             </select>
+
+            {shipping.method === 'Customer InPost' && (
+              <p className="text-xs text-neutral-400 mt-2">
+                You will need to provide your own valid InPost code/QR details
+                after ordering.
+              </p>
+            )}
           </div>
 
           <div className="space-y-1 mb-3 text-sm">
