@@ -107,6 +107,7 @@ export default function AdminPage() {
   const [telegramUserId, setTelegramUserId] = useState<number | null>(null)
   const [savingOrderId, setSavingOrderId] = useState<number | null>(null)
   const [statusFilter, setStatusFilter] = useState('All')
+  const [expandedOrderId, setExpandedOrderId] = useState<number | null>(null)
 
   useEffect(() => {
     async function initAdmin() {
@@ -244,6 +245,10 @@ export default function AdminPage() {
           : order
       )
     )
+  }
+
+  function formatDate(date: string) {
+    return new Date(date).toLocaleString()
   }
 
   function formatShippingAddress(order: Order) {
@@ -471,316 +476,350 @@ export default function AdminPage() {
         Showing {filteredOrders.length} orders
       </p>
 
-      <div className="space-y-4">
-        {filteredOrders.map((order) => (
-          <div
-            key={order.id}
-            className="rounded-2xl bg-neutral-900 border border-neutral-800 p-4"
-          >
-            <div className="flex justify-between gap-3">
-              <div>
-                <h2 className="font-bold">
-                  {order.order_reference || `Order #${order.id}`}
-                </h2>
-                <p className="text-sm text-neutral-400">
-                  {new Date(order.created_at).toLocaleString()}
+      <div className="space-y-3">
+        {filteredOrders.map((order) => {
+          const isExpanded = expandedOrderId === order.id
+
+          return (
+            <div
+              key={order.id}
+              className="rounded-2xl bg-neutral-900 border border-neutral-800 p-4"
+            >
+              <button
+                onClick={() =>
+                  setExpandedOrderId(isExpanded ? null : order.id)
+                }
+                className="w-full text-left"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-sm text-neutral-400">
+                      {formatDate(order.created_at)}
+                    </p>
+
+                    <h2 className="font-bold mt-1">
+                      {order.order_reference || `Order #${order.id}`}
+                    </h2>
+                  </div>
+
+                  <span className="text-sm rounded-full bg-neutral-800 px-3 py-1 h-fit">
+                    {order.status}
+                  </span>
+                </div>
+
+                <p className="text-xs text-neutral-500 mt-3">
+                  {isExpanded ? 'Tap to collapse' : 'Tap to view / edit order'}
                 </p>
-              </div>
+              </button>
 
-              <span className="text-sm rounded-full bg-neutral-800 px-3 py-1 h-fit">
-                {order.status}
-              </span>
-            </div>
+              {isExpanded && (
+                <div className="mt-4 border-t border-neutral-800 pt-4">
+                  <div className="space-y-1 text-sm">
+                    <p>
+                      <strong>Customer:</strong>{' '}
+                      {order.customer_name || 'Unknown'}
+                    </p>
 
-            <div className="mt-4 space-y-1 text-sm">
-              <p>
-                <strong>Customer:</strong> {order.customer_name || 'Unknown'}
-              </p>
+                    <p>
+                      <strong>Telegram:</strong>{' '}
+                      {order.telegram_username
+                        ? `@${order.telegram_username}`
+                        : 'Not captured'}
+                    </p>
 
-              <p>
-                <strong>Telegram:</strong>{' '}
-                {order.telegram_username
-                  ? `@${order.telegram_username}`
-                  : 'Not captured'}
-              </p>
+                    <p>
+                      <strong>Product:</strong>{' '}
+                      {order.products?.name || `Product #${order.product_id}`}
+                    </p>
 
-              <p>
-                <strong>Product:</strong>{' '}
-                {order.products?.name || `Product #${order.product_id}`}
-              </p>
+                    <p>
+                      <strong>Quantity:</strong> {order.quantity}
+                    </p>
 
-              <p>
-                <strong>Quantity:</strong> {order.quantity}
-              </p>
+                    <p>
+                      <strong>Line Total:</strong> £
+                      {Number(order.total_price).toFixed(2)}
+                    </p>
 
-              <p>
-                <strong>Line Total:</strong> £
-                {Number(order.total_price).toFixed(2)}
-              </p>
+                    <p>
+                      <strong>Order Total:</strong> £
+                      {Number(order.order_total || order.total_price).toFixed(2)}
+                    </p>
 
-              <p>
-                <strong>Order Total:</strong> £
-                {Number(order.order_total || order.total_price).toFixed(2)}
-              </p>
+                    <p>
+                      <strong>Shipping Service:</strong>{' '}
+                      {order.shipping_service || 'Not selected'}
+                    </p>
 
-              <p>
-                <strong>Shipping Service:</strong>{' '}
-                {order.shipping_service || 'Not selected'}
-              </p>
+                    <p>
+                      <strong>Shipping Cost:</strong> £
+                      {Number(order.shipping_cost || 0).toFixed(2)}
+                    </p>
+                  </div>
 
-              <p>
-                <strong>Shipping Cost:</strong> £
-                {Number(order.shipping_cost || 0).toFixed(2)}
-              </p>
-            </div>
+                  {(order.shipping_name ||
+                    order.shipping_address_line1 ||
+                    order.shipping_postcode) && (
+                    <div className="mt-4 rounded-xl bg-neutral-800 border border-neutral-700 p-3 text-sm">
+                      <p className="font-semibold mb-2">Shipping Address</p>
 
-            {(order.shipping_name ||
-              order.shipping_address_line1 ||
-              order.shipping_postcode) && (
-              <div className="mt-4 rounded-xl bg-neutral-800 border border-neutral-700 p-3 text-sm">
-                <p className="font-semibold mb-2">Shipping Address</p>
+                      {order.shipping_name && <p>{order.shipping_name}</p>}
+                      {order.shipping_address_line1 && (
+                        <p>{order.shipping_address_line1}</p>
+                      )}
+                      {order.shipping_address_line2 && (
+                        <p>{order.shipping_address_line2}</p>
+                      )}
+                      {order.shipping_city && <p>{order.shipping_city}</p>}
+                      {order.shipping_postcode && (
+                        <p>{order.shipping_postcode}</p>
+                      )}
+                      {order.shipping_country && (
+                        <p>{order.shipping_country}</p>
+                      )}
 
-                {order.shipping_name && <p>{order.shipping_name}</p>}
-                {order.shipping_address_line1 && (
-                  <p>{order.shipping_address_line1}</p>
-                )}
-                {order.shipping_address_line2 && (
-                  <p>{order.shipping_address_line2}</p>
-                )}
-                {order.shipping_city && <p>{order.shipping_city}</p>}
-                {order.shipping_postcode && <p>{order.shipping_postcode}</p>}
-                {order.shipping_country && <p>{order.shipping_country}</p>}
+                      <button
+                        onClick={() => copyShippingAddress(order)}
+                        className="mt-3 w-full rounded-xl bg-white text-black py-2 font-semibold"
+                      >
+                        Copy Address
+                      </button>
+                    </div>
+                  )}
 
-                <button
-                  onClick={() => copyShippingAddress(order)}
-                  className="mt-3 w-full rounded-xl bg-white text-black py-2 font-semibold"
-                >
-                  Copy Address
-                </button>
-              </div>
-            )}
+                  <div className="mt-4 space-y-3">
+                    <div>
+                      <label className="text-sm text-neutral-400">
+                        Order Status
+                      </label>
 
-            <div className="mt-4 space-y-3">
-              <div>
-                <label className="text-sm text-neutral-400">
-                  Order Status
-                </label>
+                      <select
+                        value={order.status}
+                        onChange={(event) =>
+                          updateLocalOrder(
+                            order.id,
+                            'status',
+                            event.target.value
+                          )
+                        }
+                        className="mt-2 w-full rounded-xl bg-neutral-800 border border-neutral-700 p-3"
+                      >
+                        {statuses.map((status) => (
+                          <option key={status} value={status}>
+                            {status}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
 
-                <select
-                  value={order.status}
-                  onChange={(event) =>
-                    updateLocalOrder(order.id, 'status', event.target.value)
-                  }
-                  className="mt-2 w-full rounded-xl bg-neutral-800 border border-neutral-700 p-3"
-                >
-                  {statuses.map((status) => (
-                    <option key={status} value={status}>
-                      {status}
-                    </option>
-                  ))}
-                </select>
-              </div>
+                    <div>
+                      <label className="text-sm text-neutral-400">
+                        Expected Dispatch Date
+                      </label>
 
-              <div>
-                <label className="text-sm text-neutral-400">
-                  Expected Dispatch Date
-                </label>
+                      <input
+                        type="date"
+                        value={order.expected_dispatch_date || ''}
+                        onChange={(event) =>
+                          updateLocalOrder(
+                            order.id,
+                            'expected_dispatch_date',
+                            event.target.value
+                          )
+                        }
+                        className="mt-2 w-full rounded-xl bg-neutral-800 border border-neutral-700 p-3"
+                      />
+                    </div>
 
-                <input
-                  type="date"
-                  value={order.expected_dispatch_date || ''}
-                  onChange={(event) =>
-                    updateLocalOrder(
-                      order.id,
-                      'expected_dispatch_date',
-                      event.target.value
-                    )
-                  }
-                  className="mt-2 w-full rounded-xl bg-neutral-800 border border-neutral-700 p-3"
-                />
-              </div>
+                    <div className="rounded-xl border border-neutral-800 p-3">
+                      <h3 className="font-semibold mb-3">Shipping</h3>
 
-              <div className="rounded-xl border border-neutral-800 p-3">
-                <h3 className="font-semibold mb-3">Shipping</h3>
+                      <div className="space-y-3">
+                        <div>
+                          <label className="text-sm text-neutral-400">
+                            Shipping Method
+                          </label>
 
-                <div className="space-y-3">
-                  <div>
-                    <label className="text-sm text-neutral-400">
-                      Shipping Method
-                    </label>
+                          <select
+                            value={order.shipping_method || ''}
+                            onChange={(event) =>
+                              updateLocalOrder(
+                                order.id,
+                                'shipping_method',
+                                event.target.value
+                              )
+                            }
+                            className="mt-2 w-full rounded-xl bg-neutral-800 border border-neutral-700 p-3"
+                          >
+                            {shippingMethods.map((method) => (
+                              <option key={method || 'blank'} value={method}>
+                                {method || 'Not selected'}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
 
-                    <select
-                      value={order.shipping_method || ''}
-                      onChange={(event) =>
-                        updateLocalOrder(
-                          order.id,
-                          'shipping_method',
-                          event.target.value
-                        )
-                      }
-                      className="mt-2 w-full rounded-xl bg-neutral-800 border border-neutral-700 p-3"
+                        <div>
+                          <label className="text-sm text-neutral-400">
+                            Shipping Paid By
+                          </label>
+
+                          <select
+                            value={order.shipping_paid_by || 'seller'}
+                            onChange={(event) =>
+                              updateLocalOrder(
+                                order.id,
+                                'shipping_paid_by',
+                                event.target.value
+                              )
+                            }
+                            className="mt-2 w-full rounded-xl bg-neutral-800 border border-neutral-700 p-3"
+                          >
+                            {shippingPaidByOptions.map((option) => (
+                              <option key={option} value={option}>
+                                {option}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="text-sm text-neutral-400">
+                            Carrier
+                          </label>
+
+                          <select
+                            value={order.carrier || ''}
+                            onChange={(event) =>
+                              updateLocalOrder(
+                                order.id,
+                                'carrier',
+                                event.target.value
+                              )
+                            }
+                            className="mt-2 w-full rounded-xl bg-neutral-800 border border-neutral-700 p-3"
+                          >
+                            {carriers.map((carrier) => (
+                              <option
+                                key={carrier || 'blank'}
+                                value={carrier}
+                              >
+                                {carrier || 'Not selected'}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="text-sm text-neutral-400">
+                            Tracking Number
+                          </label>
+
+                          <input
+                            type="text"
+                            value={order.tracking_number || ''}
+                            onChange={(event) =>
+                              updateLocalOrder(
+                                order.id,
+                                'tracking_number',
+                                event.target.value
+                              )
+                            }
+                            placeholder="e.g. RM123456789GB"
+                            className="mt-2 w-full rounded-xl bg-neutral-800 border border-neutral-700 p-3"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="text-sm text-neutral-400">
+                            Customer InPost Reference / QR Notes
+                          </label>
+
+                          <input
+                            type="text"
+                            value={order.customer_shipping_reference || ''}
+                            onChange={(event) =>
+                              updateLocalOrder(
+                                order.id,
+                                'customer_shipping_reference',
+                                event.target.value
+                              )
+                            }
+                            placeholder="Customer-provided InPost reference or QR note"
+                            className="mt-2 w-full rounded-xl bg-neutral-800 border border-neutral-700 p-3"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="text-sm text-neutral-400">
+                            Customer Shipping Notes
+                          </label>
+
+                          <textarea
+                            value={order.customer_shipping_notes || ''}
+                            onChange={(event) =>
+                              updateLocalOrder(
+                                order.id,
+                                'customer_shipping_notes',
+                                event.target.value
+                              )
+                            }
+                            placeholder="Any customer-supplied shipping instructions..."
+                            className="mt-2 w-full rounded-xl bg-neutral-800 border border-neutral-700 p-3 min-h-20"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="text-sm text-neutral-400">
+                            Dispatch Date
+                          </label>
+
+                          <input
+                            type="date"
+                            value={order.dispatch_date || ''}
+                            onChange={(event) =>
+                              updateLocalOrder(
+                                order.id,
+                                'dispatch_date',
+                                event.target.value
+                              )
+                            }
+                            className="mt-2 w-full rounded-xl bg-neutral-800 border border-neutral-700 p-3"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="text-sm text-neutral-400">
+                        Internal Notes
+                      </label>
+
+                      <textarea
+                        value={order.notes || ''}
+                        onChange={(event) =>
+                          updateLocalOrder(order.id, 'notes', event.target.value)
+                        }
+                        placeholder="Production notes, customer requests, packing notes..."
+                        className="mt-2 w-full rounded-xl bg-neutral-800 border border-neutral-700 p-3 min-h-24"
+                      />
+                    </div>
+
+                    <button
+                      onClick={() => saveOrder(order)}
+                      disabled={savingOrderId === order.id}
+                      className="w-full rounded-xl bg-white text-black py-3 font-semibold disabled:opacity-50"
                     >
-                      {shippingMethods.map((method) => (
-                        <option key={method || 'blank'} value={method}>
-                          {method || 'Not selected'}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="text-sm text-neutral-400">
-                      Shipping Paid By
-                    </label>
-
-                    <select
-                      value={order.shipping_paid_by || 'seller'}
-                      onChange={(event) =>
-                        updateLocalOrder(
-                          order.id,
-                          'shipping_paid_by',
-                          event.target.value
-                        )
-                      }
-                      className="mt-2 w-full rounded-xl bg-neutral-800 border border-neutral-700 p-3"
-                    >
-                      {shippingPaidByOptions.map((option) => (
-                        <option key={option} value={option}>
-                          {option}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="text-sm text-neutral-400">Carrier</label>
-
-                    <select
-                      value={order.carrier || ''}
-                      onChange={(event) =>
-                        updateLocalOrder(
-                          order.id,
-                          'carrier',
-                          event.target.value
-                        )
-                      }
-                      className="mt-2 w-full rounded-xl bg-neutral-800 border border-neutral-700 p-3"
-                    >
-                      {carriers.map((carrier) => (
-                        <option key={carrier || 'blank'} value={carrier}>
-                          {carrier || 'Not selected'}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="text-sm text-neutral-400">
-                      Tracking Number
-                    </label>
-
-                    <input
-                      type="text"
-                      value={order.tracking_number || ''}
-                      onChange={(event) =>
-                        updateLocalOrder(
-                          order.id,
-                          'tracking_number',
-                          event.target.value
-                        )
-                      }
-                      placeholder="e.g. RM123456789GB"
-                      className="mt-2 w-full rounded-xl bg-neutral-800 border border-neutral-700 p-3"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-sm text-neutral-400">
-                      Customer InPost Reference / QR Notes
-                    </label>
-
-                    <input
-                      type="text"
-                      value={order.customer_shipping_reference || ''}
-                      onChange={(event) =>
-                        updateLocalOrder(
-                          order.id,
-                          'customer_shipping_reference',
-                          event.target.value
-                        )
-                      }
-                      placeholder="Customer-provided InPost reference or QR note"
-                      className="mt-2 w-full rounded-xl bg-neutral-800 border border-neutral-700 p-3"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-sm text-neutral-400">
-                      Customer Shipping Notes
-                    </label>
-
-                    <textarea
-                      value={order.customer_shipping_notes || ''}
-                      onChange={(event) =>
-                        updateLocalOrder(
-                          order.id,
-                          'customer_shipping_notes',
-                          event.target.value
-                        )
-                      }
-                      placeholder="Any customer-supplied shipping instructions..."
-                      className="mt-2 w-full rounded-xl bg-neutral-800 border border-neutral-700 p-3 min-h-20"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-sm text-neutral-400">
-                      Dispatch Date
-                    </label>
-
-                    <input
-                      type="date"
-                      value={order.dispatch_date || ''}
-                      onChange={(event) =>
-                        updateLocalOrder(
-                          order.id,
-                          'dispatch_date',
-                          event.target.value
-                        )
-                      }
-                      className="mt-2 w-full rounded-xl bg-neutral-800 border border-neutral-700 p-3"
-                    />
+                      {savingOrderId === order.id
+                        ? 'Saving...'
+                        : 'Save & Notify Customer'}
+                    </button>
                   </div>
                 </div>
-              </div>
-
-              <div>
-                <label className="text-sm text-neutral-400">
-                  Internal Notes
-                </label>
-
-                <textarea
-                  value={order.notes || ''}
-                  onChange={(event) =>
-                    updateLocalOrder(order.id, 'notes', event.target.value)
-                  }
-                  placeholder="Production notes, customer requests, packing notes..."
-                  className="mt-2 w-full rounded-xl bg-neutral-800 border border-neutral-700 p-3 min-h-24"
-                />
-              </div>
-
-              <button
-                onClick={() => saveOrder(order)}
-                disabled={savingOrderId === order.id}
-                className="w-full rounded-xl bg-white text-black py-3 font-semibold disabled:opacity-50"
-              >
-                {savingOrderId === order.id
-                  ? 'Saving...'
-                  : 'Save & Notify Customer'}
-              </button>
+              )}
             </div>
-          </div>
-        ))}
+          )
+        })}
       </div>
     </main>
   )
