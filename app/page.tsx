@@ -56,6 +56,7 @@ const shippingOptions: ShippingOption[] = [
   { method: 'Customer InPost', service: 'Customer provides InPost code', cost: 0 },
   { method: 'Royal Mail Click & Drop', service: 'Royal Mail Tracked 48', cost: 3.95 },
   { method: 'Royal Mail Click & Drop', service: 'Royal Mail Tracked 24', cost: 4.95 },
+  { method: 'Royal Mail Click & Drop', service: 'Royal Mail Tracked 72', cost: 0.01 },
 ]
 
 export default function Home() {

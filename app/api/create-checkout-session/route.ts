@@ -58,7 +58,15 @@ export async function POST(request: Request) {
     }
 
     const session = await stripe.checkout.sessions.create({
-      mode: 'payment',
+
+shipping_address_collection:
+  shipping?.method === 'Royal Mail Click & Drop'
+    ? {
+        allowed_countries: ['GB'],
+      }
+    : undefined,      
+
+	mode: 'payment',
       payment_method_types: ['card'],
       line_items: lineItems,
       metadata: {

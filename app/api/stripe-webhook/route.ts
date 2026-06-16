@@ -129,6 +129,11 @@ export async function POST(request: Request) {
     const shippingService = session.metadata?.shipping_service || null
     const expectedDispatchDate = getExpectedDispatchDate()
 
+const shippingDetails =
+  session.collected_information?.shipping_details || null
+
+const shippingAddress = shippingDetails?.address || null
+
     for (const item of basket) {
       const { error } = await supabaseAdmin
         .from('orders')
@@ -139,21 +144,26 @@ export async function POST(request: Request) {
           telegram_first_name: telegramFirstName,
           telegram_last_name: telegramLastName,
           customer_name: customerName,
+
           product_id: item.product_id,
           variant_id: item.variant_id || null,
           variant_name: item.variant_name || null,
           variant_value: item.variant_value || null,
+
           quantity: item.quantity,
           total_price: Number(item.price) * Number(item.quantity),
           order_total: orderTotal,
           status: 'Paid',
+
           stripe_session_id: session.id,
           stripe_payment_intent_id:
             typeof session.payment_intent === 'string'
               ? session.payment_intent
               : null,
+
           order_reference: orderReference,
           expected_dispatch_date: expectedDispatchDate,
+
           shipping_method: shippingMethod,
           shipping_service: shippingService,
           shipping_cost: shippingCost,
@@ -165,6 +175,13 @@ export async function POST(request: Request) {
               : shippingMethod === 'Customer InPost'
                 ? 'InPost'
                 : null,
+
+          shipping_name: shippingDetails?.name || null,
+          shipping_address_line1: shippingAddress?.line1 || null,
+          shipping_address_line2: shippingAddress?.line2 || null,
+          shipping_city: shippingAddress?.city || null,
+          shipping_postcode: shippingAddress?.postal_code || null,
+          shipping_country: shippingAddress?.country || null,
         })
 
       if (error) {
