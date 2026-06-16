@@ -27,7 +27,6 @@ type ProductVariant = {
   active: boolean
 }
 
-
 type Product = {
   id: number
   name: string
@@ -42,8 +41,6 @@ type Product = {
   product_images?: ProductImage[]
   product_variants?: ProductVariant[]
 }
-
-
 
 const blankProduct = {
   name: '',
@@ -75,11 +72,9 @@ export default function ProductAdminPage() {
   const [telegramUserId, setTelegramUserId] = useState<number | null>(null)
   const [savingId, setSavingId] = useState<number | null>(null)
   const [uploading, setUploading] = useState(false)
-const [newVariantByProduct, setNewVariantByProduct] = useState<
-  Record<number, typeof blankVariant>
->({})
-
-
+  const [newVariantByProduct, setNewVariantByProduct] = useState<
+    Record<number, typeof blankVariant>
+  >({})
 
   useEffect(() => {
     async function init() {
@@ -211,14 +206,28 @@ const [newVariantByProduct, setNewVariantByProduct] = useState<
       console.error(imageError)
     }
 
-    const productsWithImages = (productData || []).map((product) => ({
+    const { data: variantData, error: variantError } = await supabase
+      .from('product_variants')
+      .select('*')
+      .in('product_id', productIds)
+      .eq('active', true)
+      .order('id', { ascending: true })
+
+    if (variantError) {
+      console.error(variantError)
+    }
+
+    const productsWithImagesAndVariants = (productData || []).map((product) => ({
       ...product,
       product_images: (imageData || []).filter(
         (image) => image.product_id === product.id
       ),
+      product_variants: (variantData || []).filter(
+        (variant) => variant.product_id === product.id
+      ),
     }))
 
-    setProducts(productsWithImages)
+    setProducts(productsWithImagesAndVariants)
   }
 
   function updateLocalProduct(
@@ -334,6 +343,75 @@ const [newVariantByProduct, setNewVariantByProduct] = useState<
     await loadProducts()
   }
 
+  async function addVariant(productId: number) {
+    const variant = newVariantByProduct[productId] || blankVariant
+
+    if (!variant.variant_value.trim()) {
+      alert('Variant value is required')
+      return
+    }
+
+    const { error } = await supabase.from('product_variants').insert({
+      product_id: productId,
+      variant_name: variant.variant_name || 'Colour',
+      variant_value: variant.variant_value.trim(),
+      sku: variant.sku || null,
+      price_override:
+        variant.price_override === '' ? null : Number(variant.price_override),
+      stock_quantity: Number(variant.stock_quantity || 0),
+      active: variant.active,
+    })
+
+    if (error) {
+      console.error(error)
+      alert('Unable to add variant')
+      return
+    }
+
+    setNewVariantByProduct({
+      ...newVariantByProduct,
+      [productId]: blankVariant,
+    })
+
+    await loadProducts()
+  }
+
+  async function updateVariant(
+    variantId: number,
+    updates: Partial<ProductVariant>
+  ) {
+    const { error } = await supabase
+      .from('product_variants')
+      .update(updates)
+      .eq('id', variantId)
+
+    if (error) {
+      console.error(error)
+      alert('Unable to update variant')
+      return
+    }
+
+    await loadProducts()
+  }
+
+  async function removeVariant(variantId: number) {
+    const confirmed = confirm('Remove this variant?')
+    if (!confirmed) return
+
+    const { error } = await supabase
+      .from('product_variants')
+      .update({ active: false })
+      .eq('id', variantId)
+
+    if (error) {
+      console.error(error)
+      alert('Unable to remove variant')
+      return
+    }
+
+    await loadProducts()
+  }
+
   async function removeProduct(productId: number) {
     const confirmed = confirm(
       'Remove this product from the shop? This will set it inactive, not permanently delete it.'
@@ -435,7 +513,7 @@ const [newVariantByProduct, setNewVariantByProduct] = useState<
 
           <div>
             <label className="block mb-2 text-sm text-neutral-400">
-              Price (£)
+              Base Price (£)
             </label>
             <input
               type="number"
@@ -517,6 +595,9 @@ const [newVariantByProduct, setNewVariantByProduct] = useState<
               }
               className="w-full rounded-xl bg-neutral-800 border border-neutral-700 p-3"
             />
+            <p className="text-xs text-neutral-500 mt-2">
+              Use this only for simple products without variants.
+            </p>
           </div>
 
           <div>
@@ -641,7 +722,7 @@ const [newVariantByProduct, setNewVariantByProduct] = useState<
 
               <div>
                 <label className="block mb-2 text-sm text-neutral-400">
-                  Price (£)
+                  Base Price (£)
                 </label>
                 <input
                   type="number"
@@ -707,6 +788,206 @@ const [newVariantByProduct, setNewVariantByProduct] = useState<
                 />
               </div>
 
+              <div className="rounded-xl border border-neutral-800 p-3">
+                <h4 className="font-semibold mb-3">Product Variants</h4>
+
+                {product.product_variants &&
+                product.product_variants.length > 0 ? (
+                  <div className="space-y-3 mb-4">
+                    {product.product_variants.map((variant) => (
+                      <div
+                        key={variant.id}
+                        className="rounded-xl bg-neutral-800 border border-neutral-700 p-3 space-y-2"
+                      >
+                        <p className="text-sm text-neutral-400">
+                          {variant.variant_name}: {variant.variant_value}
+                        </p>
+
+                        <label className="block text-xs text-neutral-400">
+                          Variant Type
+                        </label>
+                        <input
+                          type="text"
+                          value={variant.variant_name}
+                          onChange={(event) =>
+                            updateVariant(variant.id, {
+                              variant_name: event.target.value,
+                            })
+                          }
+                          className="w-full rounded-xl bg-neutral-900 border border-neutral-700 p-3"
+                        />
+
+                        <label className="block text-xs text-neutral-400">
+                          Variant Value
+                        </label>
+                        <input
+                          type="text"
+                          value={variant.variant_value}
+                          onChange={(event) =>
+                            updateVariant(variant.id, {
+                              variant_value: event.target.value,
+                            })
+                          }
+                          className="w-full rounded-xl bg-neutral-900 border border-neutral-700 p-3"
+                        />
+
+                        <label className="block text-xs text-neutral-400">
+                          Variant SKU
+                        </label>
+                        <input
+                          type="text"
+                          value={variant.sku || ''}
+                          onChange={(event) =>
+                            updateVariant(variant.id, {
+                              sku: event.target.value,
+                            })
+                          }
+                          className="w-full rounded-xl bg-neutral-900 border border-neutral-700 p-3"
+                        />
+
+                        <label className="block text-xs text-neutral-400">
+                          Price Override (£)
+                        </label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={variant.price_override || ''}
+                          onChange={(event) =>
+                            updateVariant(variant.id, {
+                              price_override:
+                                event.target.value === ''
+                                  ? null
+                                  : Number(event.target.value),
+                            })
+                          }
+                          className="w-full rounded-xl bg-neutral-900 border border-neutral-700 p-3"
+                        />
+
+                        <label className="block text-xs text-neutral-400">
+                          Variant Stock
+                        </label>
+                        <input
+                          type="number"
+                          value={variant.stock_quantity || 0}
+                          onChange={(event) =>
+                            updateVariant(variant.id, {
+                              stock_quantity: Number(event.target.value),
+                            })
+                          }
+                          className="w-full rounded-xl bg-neutral-900 border border-neutral-700 p-3"
+                        />
+
+                        <button
+                          onClick={() => removeVariant(variant.id)}
+                          className="w-full rounded-xl bg-red-700 text-white py-2 font-semibold"
+                        >
+                          Remove Variant
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-neutral-500 mb-4">
+                    No variants yet.
+                  </p>
+                )}
+
+                <div className="space-y-2">
+                  <input
+                    type="text"
+                    value={
+                      newVariantByProduct[product.id]?.variant_name ||
+                      blankVariant.variant_name
+                    }
+                    onChange={(event) =>
+                      setNewVariantByProduct({
+                        ...newVariantByProduct,
+                        [product.id]: {
+                          ...(newVariantByProduct[product.id] || blankVariant),
+                          variant_name: event.target.value,
+                        },
+                      })
+                    }
+                    placeholder="Variant type e.g. Colour"
+                    className="w-full rounded-xl bg-neutral-800 border border-neutral-700 p-3"
+                  />
+
+                  <input
+                    type="text"
+                    value={newVariantByProduct[product.id]?.variant_value || ''}
+                    onChange={(event) =>
+                      setNewVariantByProduct({
+                        ...newVariantByProduct,
+                        [product.id]: {
+                          ...(newVariantByProduct[product.id] || blankVariant),
+                          variant_value: event.target.value,
+                        },
+                      })
+                    }
+                    placeholder="Variant value e.g. Red"
+                    className="w-full rounded-xl bg-neutral-800 border border-neutral-700 p-3"
+                  />
+
+                  <input
+                    type="text"
+                    value={newVariantByProduct[product.id]?.sku || ''}
+                    onChange={(event) =>
+                      setNewVariantByProduct({
+                        ...newVariantByProduct,
+                        [product.id]: {
+                          ...(newVariantByProduct[product.id] || blankVariant),
+                          sku: event.target.value,
+                        },
+                      })
+                    }
+                    placeholder="Variant SKU"
+                    className="w-full rounded-xl bg-neutral-800 border border-neutral-700 p-3"
+                  />
+
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={
+                      newVariantByProduct[product.id]?.price_override || ''
+                    }
+                    onChange={(event) =>
+                      setNewVariantByProduct({
+                        ...newVariantByProduct,
+                        [product.id]: {
+                          ...(newVariantByProduct[product.id] || blankVariant),
+                          price_override: event.target.value,
+                        },
+                      })
+                    }
+                    placeholder="Optional price override"
+                    className="w-full rounded-xl bg-neutral-800 border border-neutral-700 p-3"
+                  />
+
+                  <input
+                    type="number"
+                    value={newVariantByProduct[product.id]?.stock_quantity || 0}
+                    onChange={(event) =>
+                      setNewVariantByProduct({
+                        ...newVariantByProduct,
+                        [product.id]: {
+                          ...(newVariantByProduct[product.id] || blankVariant),
+                          stock_quantity: Number(event.target.value),
+                        },
+                      })
+                    }
+                    placeholder="Variant stock"
+                    className="w-full rounded-xl bg-neutral-800 border border-neutral-700 p-3"
+                  />
+
+                  <button
+                    onClick={() => addVariant(product.id)}
+                    className="w-full rounded-xl bg-white text-black py-3 font-semibold"
+                  >
+                    Add Variant
+                  </button>
+                </div>
+              </div>
+
               <div>
                 <label className="block mb-2 text-sm text-neutral-400">
                   Stock Quantity
@@ -723,6 +1004,9 @@ const [newVariantByProduct, setNewVariantByProduct] = useState<
                   }
                   className="w-full rounded-xl bg-neutral-800 border border-neutral-700 p-3"
                 />
+                <p className="text-xs text-neutral-500 mt-2">
+                  Use this only for simple products without variants.
+                </p>
               </div>
 
               <div>
