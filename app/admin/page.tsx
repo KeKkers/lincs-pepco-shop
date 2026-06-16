@@ -29,7 +29,6 @@ type Order = {
   customer_shipping_reference: string | null
   customer_shipping_notes: string | null
   shipping_paid_by: string | null
-  dropoff_status: string | null
   shipping_cost: number | null
   shipping_service: string | null
   created_at: string
@@ -57,7 +56,6 @@ type DashboardStats = {
 const statuses = [
   'Paid',
   'Printing',
-  'Quality Check',
   'Packed',
   'Dispatched',
   'Delivered',
@@ -74,14 +72,6 @@ const shippingMethods = [
 ]
 
 const shippingPaidByOptions = ['seller', 'customer']
-
-const dropoffStatuses = [
-  'Not Ready',
-  'Ready for Drop-off',
-  'Dropped Off',
-  'In Transit',
-  'Delivered',
-]
 
 const carriers = [
   '',
@@ -110,7 +100,7 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(true)
   const [telegramUserId, setTelegramUserId] = useState<number | null>(null)
   const [savingOrderId, setSavingOrderId] = useState<number | null>(null)
-const [statusFilter, setStatusFilter] = useState('All')
+  const [statusFilter, setStatusFilter] = useState('All')
 
   useEffect(() => {
     async function initAdmin() {
@@ -206,7 +196,7 @@ const [statusFilter, setStatusFilter] = useState('All')
     ).length
 
     const inProduction = orderData.filter((order) =>
-      ['Printing', 'Quality Check'].includes(order.status)
+      ['Printing'].includes(order.status)
     ).length
 
     const lowStock = productData.filter((product) => {
@@ -228,12 +218,11 @@ const [statusFilter, setStatusFilter] = useState('All')
     })
   }
 
-const filteredOrders =
-  statusFilter === 'All'
-    ? orders
-    : orders.filter(
-        (order) => order.status === statusFilter
-      )
+  const filteredOrders =
+    statusFilter === 'All'
+      ? orders
+      : orders.filter((order) => order.status === statusFilter)
+
   function updateLocalOrder(
     orderId: number,
     field: keyof Order,
@@ -268,10 +257,6 @@ const filteredOrders =
 
     if (order.shipping_service) {
       message += `Shipping service: ${order.shipping_service}\n`
-    }
-
-    if (order.dropoff_status) {
-      message += `Drop-off status: ${order.dropoff_status}\n`
     }
 
     if (order.dispatch_date) {
@@ -330,7 +315,6 @@ const filteredOrders =
         customer_shipping_reference: order.customer_shipping_reference || null,
         customer_shipping_notes: order.customer_shipping_notes || null,
         shipping_paid_by: order.shipping_paid_by || null,
-        dropoff_status: order.dropoff_status || null,
       })
       .eq('id', order.id)
 
@@ -373,8 +357,7 @@ const filteredOrders =
       <h1 className="text-2xl font-bold mb-2">Lincs Pep Co Admin</h1>
 
       <p className="text-neutral-400 mb-6">
-        Manage orders, production status, customer shipping and dispatch
-        details.
+        Manage orders, production status, customer shipping and dispatch details.
       </p>
 
       <a
@@ -432,28 +415,28 @@ const filteredOrders =
         Refresh Dashboard
       </button>
 
-<div className="mb-6 flex gap-2 overflow-x-auto pb-2">
-  {['All', ...statuses].map((status) => (
-    <button
-      key={status}
-      onClick={() => setStatusFilter(status)}
-      className={`whitespace-nowrap rounded-full border px-4 py-2 text-sm ${
-        statusFilter === status
-          ? 'bg-white text-black border-white'
-          : 'bg-neutral-900 text-white border-neutral-700'
-      }`}
-    >
-      {status}
-    </button>
-  ))}
-</div>
+      <div className="mb-6 flex gap-2 overflow-x-auto pb-2">
+        {['All', ...statuses].map((status) => (
+          <button
+            key={status}
+            onClick={() => setStatusFilter(status)}
+            className={`whitespace-nowrap rounded-full border px-4 py-2 text-sm ${
+              statusFilter === status
+                ? 'bg-white text-black border-white'
+                : 'bg-neutral-900 text-white border-neutral-700'
+            }`}
+          >
+            {status}
+          </button>
+        ))}
+      </div>
 
-<p className="text-sm text-neutral-400 mb-4">
-  Showing {filteredOrders.length} orders
-</p>
+      <p className="text-sm text-neutral-400 mb-4">
+        Showing {filteredOrders.length} orders
+      </p>
 
-<div className="space-y-4">
-  {filteredOrders.map((order) => (
+      <div className="space-y-4">
+        {filteredOrders.map((order) => (
           <div
             key={order.id}
             className="rounded-2xl bg-neutral-900 border border-neutral-800 p-4"
@@ -602,48 +585,6 @@ const filteredOrders =
                       {shippingPaidByOptions.map((option) => (
                         <option key={option} value={option}>
                           {option}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="text-sm text-neutral-400">
-                      Drop-off Status
-                    </label>
-
-                    <select
-                      value={order.dropoff_status || 'Not Ready'}
-                      onChange={(event) => {
-  const value = event.target.value
-
-  updateLocalOrder(
-    order.id,
-    'dropoff_status',
-    value
-  )
-
-  if (value === 'Dropped Off') {
-    updateLocalOrder(
-      order.id,
-      'status',
-      'Dispatched'
-    )
-  }
-
-  if (value === 'Delivered') {
-    updateLocalOrder(
-      order.id,
-      'status',
-      'Delivered'
-    )
-  }
-}}
-                      className="mt-2 w-full rounded-xl bg-neutral-800 border border-neutral-700 p-3"
-                    >
-                      {dropoffStatuses.map((status) => (
-                        <option key={status} value={status}>
-                          {status}
                         </option>
                       ))}
                     </select>
