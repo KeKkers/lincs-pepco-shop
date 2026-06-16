@@ -110,6 +110,7 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(true)
   const [telegramUserId, setTelegramUserId] = useState<number | null>(null)
   const [savingOrderId, setSavingOrderId] = useState<number | null>(null)
+const [statusFilter, setStatusFilter] = useState('All')
 
   useEffect(() => {
     async function initAdmin() {
@@ -227,6 +228,12 @@ export default function AdminPage() {
     })
   }
 
+const filteredOrders =
+  statusFilter === 'All'
+    ? orders
+    : orders.filter(
+        (order) => order.status === statusFilter
+      )
   function updateLocalOrder(
     orderId: number,
     field: keyof Order,
@@ -425,8 +432,28 @@ export default function AdminPage() {
         Refresh Dashboard
       </button>
 
-      <div className="space-y-4">
-        {orders.map((order) => (
+<div className="mb-6 flex gap-2 overflow-x-auto pb-2">
+  {['All', ...statuses].map((status) => (
+    <button
+      key={status}
+      onClick={() => setStatusFilter(status)}
+      className={`whitespace-nowrap rounded-full border px-4 py-2 text-sm ${
+        statusFilter === status
+          ? 'bg-white text-black border-white'
+          : 'bg-neutral-900 text-white border-neutral-700'
+      }`}
+    >
+      {status}
+    </button>
+  ))}
+</div>
+
+<p className="text-sm text-neutral-400 mb-4">
+  Showing {filteredOrders.length} orders
+</p>
+
+<div className="space-y-4">
+  {filteredOrders.map((order) => (
           <div
             key={order.id}
             className="rounded-2xl bg-neutral-900 border border-neutral-800 p-4"
