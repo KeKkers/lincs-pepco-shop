@@ -16,6 +16,17 @@ type ProductImage = {
   sort_order: number | null
 }
 
+type ProductVariant = {
+  id: number
+  product_id: number
+  variant_name: string
+  variant_value: string
+  sku: string | null
+  price_override: number | null
+  stock_quantity: number | null
+  active: boolean
+}
+
 type Product = {
   id: number
   name: string
@@ -24,10 +35,15 @@ type Product = {
   image_url: string | null
   category: string | null
   product_images?: ProductImage[]
+  product_variants?: ProductVariant[]
 }
 
 type BasketItem = Product & {
   quantity: number
+  selected_variant_id?: number | null
+  selected_variant_name?: string | null
+  selected_variant_value?: string | null
+  selected_variant_price?: number | null
 }
 
 type ShippingOption = {
@@ -45,6 +61,7 @@ const shippingOptions: ShippingOption[] = [
 export default function Home() {
   const [products, setProducts] = useState<Product[]>([])
   const [selectedCategory, setSelectedCategory] = useState('All')
+  const [selectedVariants, setSelectedVariants] = useState<Record<number, number>>({})
   const [basket, setBasket] = useState<BasketItem[]>([])
   const [isCheckingOut, setIsCheckingOut] = useState(false)
   const [telegramUser, setTelegramUser] = useState<any>(null)
@@ -57,7 +74,6 @@ export default function Home() {
         .from('products')
         .select('*')
         .eq('active', true)
-        .gt('stock_quantity', 0)
         .order('sort_order', { ascending: true })
         .order('id', { ascending: true })
 
@@ -84,14 +100,51 @@ export default function Home() {
         console.error(imageError)
       }
 
-      const productsWithImages = (productData || []).map((product) => ({
-        ...product,
-        product_images: (imageData || []).filter(
-          (image) => image.product_id === product.id
-        ),
-      }))
+      const { data: variantData, error: variantError } = await supabase
+        .from('product_variants')
+        .select('*')
+        .in('product_id', productIds)
+        .eq('active', true)
+        .gt('stock_quantity', 0)
+        .order('id', { ascending: true })
 
-      setProducts(productsWithImages)
+      if (variantError) {
+        console.error(variantError)
+      }
+
+      const productsWithImagesAndVariants = (productData || [])
+        .map((product) => {
+          const variants = (variantData || []).filter(
+            (variant) => variant.product_id === product.id
+          )
+
+          return {
+            ...product,
+            product_images: (imageData || []).filter(
+              (image) => image.product_id === product.id
+            ),
+            product_variants: variants,
+          }
+        })
+        .filter((product) => {
+          if (product.product_variants && product.product_variants.length > 0) {
+            return true
+          }
+
+          return Number(product.stock_quantity || 0) > 0
+        })
+
+      setProducts(productsWithImagesAndVariants)
+
+      const defaultVariants: Record<number, number> = {}
+
+      productsWithImagesAndVariants.forEach((product) => {
+        if (product.product_variants && product.product_variants.length > 0) {
+          defaultVariants[product.id] = product.product_variants[0].id
+        }
+      })
+
+      setSelectedVariants(defaultVariants)
     }
 
     async function checkAdmin(userId: number) {
@@ -147,27 +200,78 @@ export default function Home() {
     return product.image_url ? [product.image_url] : []
   }
 
+  function getSelectedVariant(product: Product) {
+    const variants = product.product_variants || []
+
+    if (variants.length === 0) {
+      return null
+    }
+
+    const selectedVariantId = selectedVariants[product.id]
+
+    return (
+      variants.find((variant) => variant.id === selectedVariantId) ||
+      variants[0]
+    )
+  }
+
+  function getDisplayPrice(product: Product) {
+    const selectedVariant = getSelectedVariant(product)
+
+    if (
+      selectedVariant &&
+      selectedVariant.price_override !== null &&
+      selectedVariant.price_override !== undefined
+    ) {
+      return Number(selectedVariant.price_override)
+    }
+
+    return Number(product.price)
+  }
+
   function addToBasket(product: Product) {
+    const selectedVariant = getSelectedVariant(product)
+    const price = getDisplayPrice(product)
+
     setBasket((current) => {
-      const existing = current.find((item) => item.id === product.id)
+      const existing = current.find(
+        (item) =>
+          item.id === product.id &&
+          (item.selected_variant_id || null) ===
+            (selectedVariant?.id || null)
+      )
 
       if (existing) {
         return current.map((item) =>
-          item.id === product.id
+          item.id === product.id &&
+          (item.selected_variant_id || null) ===
+            (selectedVariant?.id || null)
             ? { ...item, quantity: item.quantity + 1 }
             : item
         )
       }
 
-      return [...current, { ...product, quantity: 1 }]
+      return [
+        ...current,
+        {
+          ...product,
+          quantity: 1,
+          price,
+          selected_variant_id: selectedVariant?.id || null,
+          selected_variant_name: selectedVariant?.variant_name || null,
+          selected_variant_value: selectedVariant?.variant_value || null,
+          selected_variant_price: selectedVariant?.price_override || null,
+        },
+      ]
     })
   }
 
-  function removeFromBasket(productId: number) {
+  function removeFromBasket(productId: number, selectedVariantId?: number | null) {
     setBasket((current) =>
       current
         .map((item) =>
-          item.id === productId
+          item.id === productId &&
+          (item.selected_variant_id || null) === (selectedVariantId || null)
             ? { ...item, quantity: item.quantity - 1 }
             : item
         )
@@ -253,6 +357,9 @@ export default function Home() {
       <div className="grid gap-4">
         {filteredProducts.map((product) => {
           const images = getImages(product)
+          const selectedVariant = getSelectedVariant(product)
+          const displayPrice = getDisplayPrice(product)
+          const variants = product.product_variants || []
 
           return (
             <div
@@ -278,8 +385,41 @@ export default function Home() {
                 {product.description}
               </p>
 
+              {variants.length > 0 && (
+                <div className="mt-4">
+                  <label className="text-sm text-neutral-400">
+                    {variants[0].variant_name}
+                  </label>
+
+                  <select
+                    value={selectedVariant?.id || ''}
+                    onChange={(event) =>
+                      setSelectedVariants({
+                        ...selectedVariants,
+                        [product.id]: Number(event.target.value),
+                      })
+                    }
+                    className="mt-2 w-full rounded-xl bg-neutral-800 border border-neutral-700 p-3"
+                  >
+                    {variants.map((variant) => (
+                      <option key={variant.id} value={variant.id}>
+                        {variant.variant_value}
+                        {variant.price_override !== null &&
+                        variant.price_override !== undefined
+                          ? ` - £${Number(variant.price_override).toFixed(2)}`
+                          : ''}
+                        {variant.stock_quantity !== null &&
+                        Number(variant.stock_quantity) <= 3
+                          ? ` (${variant.stock_quantity} left)`
+                          : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
               <p className="text-xl font-bold mt-3">
-                £{Number(product.price).toFixed(2)}
+                £{displayPrice.toFixed(2)}
               </p>
 
               {product.category && (
@@ -312,11 +452,18 @@ export default function Home() {
           <div className="space-y-2 mb-3">
             {basket.map((item) => (
               <div
-                key={item.id}
+                key={`${item.id}-${item.selected_variant_id || 'base'}`}
                 className="flex items-center justify-between text-sm"
               >
                 <div>
                   <p>{item.name}</p>
+
+                  {item.selected_variant_name && item.selected_variant_value && (
+                    <p className="text-neutral-400">
+                      {item.selected_variant_name}: {item.selected_variant_value}
+                    </p>
+                  )}
+
                   <p className="text-neutral-400">
                     £{Number(item.price).toFixed(2)} × {item.quantity}
                   </p>
@@ -324,7 +471,9 @@ export default function Home() {
 
                 <div className="flex items-center gap-2">
                   <button
-                    onClick={() => removeFromBasket(item.id)}
+                    onClick={() =>
+                      removeFromBasket(item.id, item.selected_variant_id)
+                    }
                     className="rounded-lg bg-neutral-800 px-3 py-1"
                   >
                     -
