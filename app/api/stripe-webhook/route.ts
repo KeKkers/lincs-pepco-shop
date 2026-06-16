@@ -14,6 +14,30 @@ function getExpectedDispatchDate() {
   return date.toISOString().split('T')[0]
 }
 
+async function decrementStock(item: any) {
+  if (item.variant_id) {
+    const { error } = await supabaseAdmin.rpc('decrement_variant_stock', {
+      p_variant_id: item.variant_id,
+      p_quantity: item.quantity,
+    })
+
+    if (error) {
+      console.error('Variant stock decrement failed:', error)
+    }
+
+    return
+  }
+
+  const { error } = await supabaseAdmin.rpc('decrement_stock', {
+    p_product_id: item.product_id,
+    p_quantity: item.quantity,
+  })
+
+  if (error) {
+    console.error('Product stock decrement failed:', error)
+  }
+}
+
 export async function POST(request: Request) {
   const body = await request.text()
   const signature = request.headers.get('stripe-signature')
@@ -116,6 +140,9 @@ export async function POST(request: Request) {
           telegram_last_name: telegramLastName,
           customer_name: customerName,
           product_id: item.product_id,
+          variant_id: item.variant_id || null,
+          variant_name: item.variant_name || null,
+          variant_value: item.variant_value || null,
           quantity: item.quantity,
           total_price: Number(item.price) * Number(item.quantity),
           order_total: orderTotal,
@@ -138,7 +165,6 @@ export async function POST(request: Request) {
               : shippingMethod === 'Customer InPost'
                 ? 'InPost'
                 : null,
-          dropoff_status: 'Not Ready',
         })
 
       if (error) {
@@ -150,17 +176,7 @@ export async function POST(request: Request) {
         )
       }
 
-const { error: stockError } = await supabaseAdmin.rpc(
-  'decrement_stock',
-  {
-    p_product_id: item.product_id,
-    p_quantity: item.quantity,
-  }
-)
-
-if (stockError) {
-  console.error('Stock decrement failed:', stockError)
-}
+      await decrementStock(item)
     }
   }
 

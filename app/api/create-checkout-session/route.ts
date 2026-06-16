@@ -24,17 +24,24 @@ export async function POST(request: Request) {
     const grandTotal = basketTotal + shippingCost
 
     const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] =
-      basket.map((item: any) => ({
-        price_data: {
-          currency: 'gbp',
-          product_data: {
-            name: item.name,
-            description: item.description || undefined,
+      basket.map((item: any) => {
+        const variantText =
+          item.selected_variant_name && item.selected_variant_value
+            ? `${item.selected_variant_name}: ${item.selected_variant_value}`
+            : undefined
+
+        return {
+          price_data: {
+            currency: 'gbp',
+            product_data: {
+              name: item.name,
+              description: variantText || item.description || undefined,
+            },
+            unit_amount: Math.round(Number(item.price) * 100),
           },
-          unit_amount: Math.round(Number(item.price) * 100),
-        },
-        quantity: item.quantity,
-      }))
+          quantity: item.quantity,
+        }
+      })
 
     if (shippingCost > 0) {
       lineItems.push({
@@ -61,6 +68,9 @@ export async function POST(request: Request) {
             name: item.name,
             price: item.price,
             quantity: item.quantity,
+            variant_id: item.selected_variant_id || null,
+            variant_name: item.selected_variant_name || null,
+            variant_value: item.selected_variant_value || null,
           }))
         ),
         basket_total: basketTotal.toFixed(2),
