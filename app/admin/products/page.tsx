@@ -72,6 +72,7 @@ export default function ProductAdminPage() {
   const [telegramUserId, setTelegramUserId] = useState<number | null>(null)
   const [savingId, setSavingId] = useState<number | null>(null)
   const [uploading, setUploading] = useState(false)
+  const [expandedProductId, setExpandedProductId] = useState<number | null>(null)
   const [newVariantByProduct, setNewVariantByProduct] = useState<
     Record<number, typeof blankVariant>
   >({})
@@ -436,6 +437,19 @@ export default function ProductAdminPage() {
     await loadProducts()
   }
 
+  function getProductTotalStock(product: Product) {
+    const variants = product.product_variants || []
+
+    if (variants.length > 0) {
+      return variants.reduce(
+        (sum, variant) => sum + Number(variant.stock_quantity || 0),
+        0
+      )
+    }
+
+    return Number(product.stock_quantity || 0)
+  }
+
   if (loading) {
     return (
       <main className="min-h-screen bg-neutral-950 text-white p-6">
@@ -644,421 +658,488 @@ export default function ProductAdminPage() {
         </div>
       </section>
 
-      <section className="space-y-4">
+      <section className="space-y-3">
         <h2 className="text-xl font-bold">Existing Products</h2>
 
-        {products.map((product) => (
-          <div
-            key={product.id}
-            className="rounded-2xl bg-neutral-900 border border-neutral-800 p-4"
-          >
-            <div className="flex justify-between gap-3 mb-3">
-              <div>
-                <h3 className="font-bold">
-                  {product.name || `Product #${product.id}`}
-                </h3>
-                <p className="text-sm text-neutral-400">
-                  {product.active ? 'Active' : 'Inactive'} · Stock:{' '}
-                  {product.stock_quantity ?? 0}
-                </p>
-              </div>
+        {products.map((product) => {
+          const isExpanded = expandedProductId === product.id
+          const variantCount = product.product_variants?.length || 0
+          const totalStock = getProductTotalStock(product)
 
-              <span className="text-sm rounded-full bg-neutral-800 px-3 py-1 h-fit">
-                #{product.id}
-              </span>
-            </div>
+          return (
+            <div
+              key={product.id}
+              className="rounded-2xl bg-neutral-900 border border-neutral-800 p-4"
+            >
+              <button
+                onClick={() =>
+                  setExpandedProductId(isExpanded ? null : product.id)
+                }
+                className="w-full text-left"
+              >
+                <div className="flex justify-between gap-3">
+                  <div>
+                    <h3 className="font-bold">
+                      {product.name || `Product #${product.id}`}
+                    </h3>
 
-            {product.product_images && product.product_images.length > 0 && (
-              <div className="mb-4 flex gap-3 overflow-x-auto">
-                {product.product_images.map((image) => (
-                  <div key={image.id} className="min-w-48">
-                    <img
-                      src={image.image_url}
-                      alt={product.name}
-                      className="h-40 w-48 rounded-xl object-cover bg-neutral-800"
-                    />
-                    <button
-                      onClick={() => deleteProductImage(image.id)}
-                      className="mt-2 w-full rounded-lg bg-red-700 text-white py-2 text-sm"
-                    >
-                      Remove Image
-                    </button>
+                    <p className="text-sm text-neutral-400 mt-1">
+                      {product.category || 'No category'} · Stock: {totalStock}
+                    </p>
+
+                    <p className="text-xs text-neutral-500 mt-1">
+                      Variants: {variantCount} · Images:{' '}
+                      {product.product_images?.length || 0}
+                    </p>
                   </div>
-                ))}
-              </div>
-            )}
 
-            <div className="space-y-3">
-              <div>
-                <label className="block mb-2 text-sm text-neutral-400">
-                  Product Name
-                </label>
-                <input
-                  type="text"
-                  value={product.name}
-                  onChange={(event) =>
-                    updateLocalProduct(product.id, 'name', event.target.value)
-                  }
-                  className="w-full rounded-xl bg-neutral-800 border border-neutral-700 p-3"
-                />
-              </div>
+                  <span className="text-sm rounded-full bg-neutral-800 px-3 py-1 h-fit">
+                    #{product.id}
+                  </span>
+                </div>
 
-              <div>
-                <label className="block mb-2 text-sm text-neutral-400">
-                  Product Description
-                </label>
-                <textarea
-                  value={product.description || ''}
-                  onChange={(event) =>
-                    updateLocalProduct(
-                      product.id,
-                      'description',
-                      event.target.value
-                    )
-                  }
-                  className="w-full rounded-xl bg-neutral-800 border border-neutral-700 p-3 min-h-24"
-                />
-              </div>
+                <p className="text-xs text-neutral-500 mt-3">
+                  {isExpanded ? 'Tap to collapse' : 'Tap to edit product'}
+                </p>
+              </button>
 
-              <div>
-                <label className="block mb-2 text-sm text-neutral-400">
-                  Base Price (£)
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={product.price}
-                  onChange={(event) =>
-                    updateLocalProduct(
-                      product.id,
-                      'price',
-                      Number(event.target.value)
-                    )
-                  }
-                  className="w-full rounded-xl bg-neutral-800 border border-neutral-700 p-3"
-                />
-              </div>
+              {isExpanded && (
+                <div className="mt-4 border-t border-neutral-800 pt-4">
+                  {product.product_images &&
+                    product.product_images.length > 0 && (
+                      <div className="mb-4 flex gap-3 overflow-x-auto">
+                        {product.product_images.map((image) => (
+                          <div key={image.id} className="min-w-48">
+                            <img
+                              src={image.image_url}
+                              alt={product.name}
+                              className="h-40 w-48 rounded-xl object-cover bg-neutral-800"
+                            />
+                            <button
+                              onClick={() => deleteProductImage(image.id)}
+                              className="mt-2 w-full rounded-lg bg-red-700 text-white py-2 text-sm"
+                            >
+                              Remove Image
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
 
-              <div>
-                <label className="block mb-2 text-sm text-neutral-400">
-                  Add More Product Images
-                </label>
-                <input
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  onChange={async (event) => {
-                    const files = Array.from(event.target.files || [])
-                    if (files.length === 0) return
-                    await addImagesToExistingProduct(product.id, files)
-                  }}
-                  className="w-full rounded-xl bg-neutral-800 border border-neutral-700 p-3"
-                />
-              </div>
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block mb-2 text-sm text-neutral-400">
+                        Product Name
+                      </label>
+                      <input
+                        type="text"
+                        value={product.name}
+                        onChange={(event) =>
+                          updateLocalProduct(
+                            product.id,
+                            'name',
+                            event.target.value
+                          )
+                        }
+                        className="w-full rounded-xl bg-neutral-800 border border-neutral-700 p-3"
+                      />
+                    </div>
 
-              <div>
-                <label className="block mb-2 text-sm text-neutral-400">
-                  Category
-                </label>
-                <input
-                  type="text"
-                  value={product.category || ''}
-                  onChange={(event) =>
-                    updateLocalProduct(
-                      product.id,
-                      'category',
-                      event.target.value
-                    )
-                  }
-                  className="w-full rounded-xl bg-neutral-800 border border-neutral-700 p-3"
-                />
-              </div>
+                    <div>
+                      <label className="block mb-2 text-sm text-neutral-400">
+                        Product Description
+                      </label>
+                      <textarea
+                        value={product.description || ''}
+                        onChange={(event) =>
+                          updateLocalProduct(
+                            product.id,
+                            'description',
+                            event.target.value
+                          )
+                        }
+                        className="w-full rounded-xl bg-neutral-800 border border-neutral-700 p-3 min-h-24"
+                      />
+                    </div>
 
-              <div>
-                <label className="block mb-2 text-sm text-neutral-400">
-                  SKU
-                </label>
-                <input
-                  type="text"
-                  value={product.sku || ''}
-                  onChange={(event) =>
-                    updateLocalProduct(product.id, 'sku', event.target.value)
-                  }
-                  className="w-full rounded-xl bg-neutral-800 border border-neutral-700 p-3"
-                />
-              </div>
+                    <div>
+                      <label className="block mb-2 text-sm text-neutral-400">
+                        Base Price (£)
+                      </label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={product.price}
+                        onChange={(event) =>
+                          updateLocalProduct(
+                            product.id,
+                            'price',
+                            Number(event.target.value)
+                          )
+                        }
+                        className="w-full rounded-xl bg-neutral-800 border border-neutral-700 p-3"
+                      />
+                    </div>
 
-              <div className="rounded-xl border border-neutral-800 p-3">
-                <h4 className="font-semibold mb-3">Product Variants</h4>
+                    <div>
+                      <label className="block mb-2 text-sm text-neutral-400">
+                        Add More Product Images
+                      </label>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        onChange={async (event) => {
+                          const files = Array.from(event.target.files || [])
+                          if (files.length === 0) return
+                          await addImagesToExistingProduct(product.id, files)
+                        }}
+                        className="w-full rounded-xl bg-neutral-800 border border-neutral-700 p-3"
+                      />
+                    </div>
 
-                {product.product_variants &&
-                product.product_variants.length > 0 ? (
-                  <div className="space-y-3 mb-4">
-                    {product.product_variants.map((variant) => (
-                      <div
-                        key={variant.id}
-                        className="rounded-xl bg-neutral-800 border border-neutral-700 p-3 space-y-2"
-                      >
-                        <p className="text-sm text-neutral-400">
-                          {variant.variant_name}: {variant.variant_value}
+                    <div>
+                      <label className="block mb-2 text-sm text-neutral-400">
+                        Category
+                      </label>
+                      <input
+                        type="text"
+                        value={product.category || ''}
+                        onChange={(event) =>
+                          updateLocalProduct(
+                            product.id,
+                            'category',
+                            event.target.value
+                          )
+                        }
+                        className="w-full rounded-xl bg-neutral-800 border border-neutral-700 p-3"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block mb-2 text-sm text-neutral-400">
+                        SKU
+                      </label>
+                      <input
+                        type="text"
+                        value={product.sku || ''}
+                        onChange={(event) =>
+                          updateLocalProduct(
+                            product.id,
+                            'sku',
+                            event.target.value
+                          )
+                        }
+                        className="w-full rounded-xl bg-neutral-800 border border-neutral-700 p-3"
+                      />
+                    </div>
+
+                    <div className="rounded-xl border border-neutral-800 p-3">
+                      <h4 className="font-semibold mb-3">Product Variants</h4>
+
+                      {product.product_variants &&
+                      product.product_variants.length > 0 ? (
+                        <div className="space-y-3 mb-4">
+                          {product.product_variants.map((variant) => (
+                            <div
+                              key={variant.id}
+                              className="rounded-xl bg-neutral-800 border border-neutral-700 p-3 space-y-2"
+                            >
+                              <p className="text-sm text-neutral-400">
+                                {variant.variant_name}: {variant.variant_value}
+                              </p>
+
+                              <label className="block text-xs text-neutral-400">
+                                Variant Type
+                              </label>
+                              <input
+                                type="text"
+                                value={variant.variant_name}
+                                onChange={(event) =>
+                                  updateVariant(variant.id, {
+                                    variant_name: event.target.value,
+                                  })
+                                }
+                                className="w-full rounded-xl bg-neutral-900 border border-neutral-700 p-3"
+                              />
+
+                              <label className="block text-xs text-neutral-400">
+                                Variant Value
+                              </label>
+                              <input
+                                type="text"
+                                value={variant.variant_value}
+                                onChange={(event) =>
+                                  updateVariant(variant.id, {
+                                    variant_value: event.target.value,
+                                  })
+                                }
+                                className="w-full rounded-xl bg-neutral-900 border border-neutral-700 p-3"
+                              />
+
+                              <label className="block text-xs text-neutral-400">
+                                Variant SKU
+                              </label>
+                              <input
+                                type="text"
+                                value={variant.sku || ''}
+                                onChange={(event) =>
+                                  updateVariant(variant.id, {
+                                    sku: event.target.value,
+                                  })
+                                }
+                                className="w-full rounded-xl bg-neutral-900 border border-neutral-700 p-3"
+                              />
+
+                              <label className="block text-xs text-neutral-400">
+                                Price Override (£)
+                              </label>
+                              <input
+                                type="number"
+                                step="0.01"
+                                value={variant.price_override || ''}
+                                onChange={(event) =>
+                                  updateVariant(variant.id, {
+                                    price_override:
+                                      event.target.value === ''
+                                        ? null
+                                        : Number(event.target.value),
+                                  })
+                                }
+                                className="w-full rounded-xl bg-neutral-900 border border-neutral-700 p-3"
+                              />
+
+                              <label className="block text-xs text-neutral-400">
+                                Variant Stock
+                              </label>
+                              <input
+                                type="number"
+                                value={variant.stock_quantity || 0}
+                                onChange={(event) =>
+                                  updateVariant(variant.id, {
+                                    stock_quantity: Number(event.target.value),
+                                  })
+                                }
+                                className="w-full rounded-xl bg-neutral-900 border border-neutral-700 p-3"
+                              />
+
+                              <button
+                                onClick={() => removeVariant(variant.id)}
+                                className="w-full rounded-xl bg-red-700 text-white py-2 font-semibold"
+                              >
+                                Remove Variant
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-sm text-neutral-500 mb-4">
+                          No variants yet.
                         </p>
+                      )}
 
-                        <label className="block text-xs text-neutral-400">
-                          Variant Type
-                        </label>
-                        <input
-                          type="text"
-                          value={variant.variant_name}
-                          onChange={(event) =>
-                            updateVariant(variant.id, {
-                              variant_name: event.target.value,
-                            })
-                          }
-                          className="w-full rounded-xl bg-neutral-900 border border-neutral-700 p-3"
-                        />
+                      <div className="space-y-3">
+                        <div>
+                          <label className="block mb-2 text-sm text-neutral-400">
+                            New Variant Type
+                          </label>
+                          <input
+                            type="text"
+                            value={
+                              newVariantByProduct[product.id]?.variant_name ||
+                              blankVariant.variant_name
+                            }
+                            onChange={(event) =>
+                              setNewVariantByProduct({
+                                ...newVariantByProduct,
+                                [product.id]: {
+                                  ...(newVariantByProduct[product.id] ||
+                                    blankVariant),
+                                  variant_name: event.target.value,
+                                },
+                              })
+                            }
+                            className="w-full rounded-xl bg-neutral-800 border border-neutral-700 p-3"
+                          />
+                        </div>
 
-                        <label className="block text-xs text-neutral-400">
-                          Variant Value
-                        </label>
-                        <input
-                          type="text"
-                          value={variant.variant_value}
-                          onChange={(event) =>
-                            updateVariant(variant.id, {
-                              variant_value: event.target.value,
-                            })
-                          }
-                          className="w-full rounded-xl bg-neutral-900 border border-neutral-700 p-3"
-                        />
+                        <div>
+                          <label className="block mb-2 text-sm text-neutral-400">
+                            New Variant Value
+                          </label>
+                          <input
+                            type="text"
+                            value={
+                              newVariantByProduct[product.id]?.variant_value ||
+                              ''
+                            }
+                            onChange={(event) =>
+                              setNewVariantByProduct({
+                                ...newVariantByProduct,
+                                [product.id]: {
+                                  ...(newVariantByProduct[product.id] ||
+                                    blankVariant),
+                                  variant_value: event.target.value,
+                                },
+                              })
+                            }
+                            className="w-full rounded-xl bg-neutral-800 border border-neutral-700 p-3"
+                          />
+                        </div>
 
-                        <label className="block text-xs text-neutral-400">
-                          Variant SKU
-                        </label>
-                        <input
-                          type="text"
-                          value={variant.sku || ''}
-                          onChange={(event) =>
-                            updateVariant(variant.id, {
-                              sku: event.target.value,
-                            })
-                          }
-                          className="w-full rounded-xl bg-neutral-900 border border-neutral-700 p-3"
-                        />
+                        <div>
+                          <label className="block mb-2 text-sm text-neutral-400">
+                            New Variant SKU
+                          </label>
+                          <input
+                            type="text"
+                            value={newVariantByProduct[product.id]?.sku || ''}
+                            onChange={(event) =>
+                              setNewVariantByProduct({
+                                ...newVariantByProduct,
+                                [product.id]: {
+                                  ...(newVariantByProduct[product.id] ||
+                                    blankVariant),
+                                  sku: event.target.value,
+                                },
+                              })
+                            }
+                            className="w-full rounded-xl bg-neutral-800 border border-neutral-700 p-3"
+                          />
+                        </div>
 
-                        <label className="block text-xs text-neutral-400">
-                          Price Override (£)
-                        </label>
-                        <input
-                          type="number"
-                          step="0.01"
-                          value={variant.price_override || ''}
-                          onChange={(event) =>
-                            updateVariant(variant.id, {
-                              price_override:
-                                event.target.value === ''
-                                  ? null
-                                  : Number(event.target.value),
-                            })
-                          }
-                          className="w-full rounded-xl bg-neutral-900 border border-neutral-700 p-3"
-                        />
+                        <div>
+                          <label className="block mb-2 text-sm text-neutral-400">
+                            New Variant Price Override (£)
+                          </label>
+                          <input
+                            type="number"
+                            step="0.01"
+                            value={
+                              newVariantByProduct[product.id]?.price_override ||
+                              ''
+                            }
+                            onChange={(event) =>
+                              setNewVariantByProduct({
+                                ...newVariantByProduct,
+                                [product.id]: {
+                                  ...(newVariantByProduct[product.id] ||
+                                    blankVariant),
+                                  price_override: event.target.value,
+                                },
+                              })
+                            }
+                            className="w-full rounded-xl bg-neutral-800 border border-neutral-700 p-3"
+                          />
+                        </div>
 
-                        <label className="block text-xs text-neutral-400">
-                          Variant Stock
-                        </label>
-                        <input
-                          type="number"
-                          value={variant.stock_quantity || 0}
-                          onChange={(event) =>
-                            updateVariant(variant.id, {
-                              stock_quantity: Number(event.target.value),
-                            })
-                          }
-                          className="w-full rounded-xl bg-neutral-900 border border-neutral-700 p-3"
-                        />
+                        <div>
+                          <label className="block mb-2 text-sm text-neutral-400">
+                            New Variant Stock
+                          </label>
+                          <input
+                            type="number"
+                            value={
+                              newVariantByProduct[product.id]?.stock_quantity ||
+                              0
+                            }
+                            onChange={(event) =>
+                              setNewVariantByProduct({
+                                ...newVariantByProduct,
+                                [product.id]: {
+                                  ...(newVariantByProduct[product.id] ||
+                                    blankVariant),
+                                  stock_quantity: Number(event.target.value),
+                                },
+                              })
+                            }
+                            className="w-full rounded-xl bg-neutral-800 border border-neutral-700 p-3"
+                          />
+                        </div>
 
                         <button
-                          onClick={() => removeVariant(variant.id)}
-                          className="w-full rounded-xl bg-red-700 text-white py-2 font-semibold"
+                          onClick={() => addVariant(product.id)}
+                          className="w-full rounded-xl bg-white text-black py-3 font-semibold"
                         >
-                          Remove Variant
+                          Add Variant
                         </button>
                       </div>
-                    ))}
+                    </div>
+
+                    <div>
+                      <label className="block mb-2 text-sm text-neutral-400">
+                        Stock Quantity
+                      </label>
+                      <input
+                        type="number"
+                        value={product.stock_quantity || 0}
+                        onChange={(event) =>
+                          updateLocalProduct(
+                            product.id,
+                            'stock_quantity',
+                            Number(event.target.value)
+                          )
+                        }
+                        className="w-full rounded-xl bg-neutral-800 border border-neutral-700 p-3"
+                      />
+                      <p className="text-xs text-neutral-500 mt-2">
+                        Use this only for simple products without variants.
+                      </p>
+                    </div>
+
+                    <div>
+                      <label className="block mb-2 text-sm text-neutral-400">
+                        Sort Order
+                      </label>
+                      <input
+                        type="number"
+                        value={product.sort_order || 0}
+                        onChange={(event) =>
+                          updateLocalProduct(
+                            product.id,
+                            'sort_order',
+                            Number(event.target.value)
+                          )
+                        }
+                        className="w-full rounded-xl bg-neutral-800 border border-neutral-700 p-3"
+                      />
+                    </div>
+
+                    <label className="flex items-center gap-3 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={product.active}
+                        onChange={(event) =>
+                          updateLocalProduct(
+                            product.id,
+                            'active',
+                            event.target.checked
+                          )
+                        }
+                      />
+                      Active product
+                    </label>
+
+                    <button
+                      onClick={() => saveProduct(product)}
+                      disabled={savingId === product.id}
+                      className="w-full rounded-xl bg-white text-black py-3 font-semibold disabled:opacity-50"
+                    >
+                      {savingId === product.id ? 'Saving...' : 'Save Product'}
+                    </button>
+
+                    <button
+                      onClick={() => removeProduct(product.id)}
+                      className="w-full rounded-xl bg-red-700 text-white py-3 font-semibold"
+                    >
+                      Remove from Shop
+                    </button>
                   </div>
-                ) : (
-                  <p className="text-sm text-neutral-500 mb-4">
-                    No variants yet.
-                  </p>
-                )}
-
-                <div className="space-y-2">
-                  <input
-                    type="text"
-                    value={
-                      newVariantByProduct[product.id]?.variant_name ||
-                      blankVariant.variant_name
-                    }
-                    onChange={(event) =>
-                      setNewVariantByProduct({
-                        ...newVariantByProduct,
-                        [product.id]: {
-                          ...(newVariantByProduct[product.id] || blankVariant),
-                          variant_name: event.target.value,
-                        },
-                      })
-                    }
-                    placeholder="Variant type e.g. Colour"
-                    className="w-full rounded-xl bg-neutral-800 border border-neutral-700 p-3"
-                  />
-
-                  <input
-                    type="text"
-                    value={newVariantByProduct[product.id]?.variant_value || ''}
-                    onChange={(event) =>
-                      setNewVariantByProduct({
-                        ...newVariantByProduct,
-                        [product.id]: {
-                          ...(newVariantByProduct[product.id] || blankVariant),
-                          variant_value: event.target.value,
-                        },
-                      })
-                    }
-                    placeholder="Variant value e.g. Red"
-                    className="w-full rounded-xl bg-neutral-800 border border-neutral-700 p-3"
-                  />
-
-                  <input
-                    type="text"
-                    value={newVariantByProduct[product.id]?.sku || ''}
-                    onChange={(event) =>
-                      setNewVariantByProduct({
-                        ...newVariantByProduct,
-                        [product.id]: {
-                          ...(newVariantByProduct[product.id] || blankVariant),
-                          sku: event.target.value,
-                        },
-                      })
-                    }
-                    placeholder="Variant SKU"
-                    className="w-full rounded-xl bg-neutral-800 border border-neutral-700 p-3"
-                  />
-
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={
-                      newVariantByProduct[product.id]?.price_override || ''
-                    }
-                    onChange={(event) =>
-                      setNewVariantByProduct({
-                        ...newVariantByProduct,
-                        [product.id]: {
-                          ...(newVariantByProduct[product.id] || blankVariant),
-                          price_override: event.target.value,
-                        },
-                      })
-                    }
-                    placeholder="Optional price override"
-                    className="w-full rounded-xl bg-neutral-800 border border-neutral-700 p-3"
-                  />
-
-                  <input
-                    type="number"
-                    value={newVariantByProduct[product.id]?.stock_quantity || 0}
-                    onChange={(event) =>
-                      setNewVariantByProduct({
-                        ...newVariantByProduct,
-                        [product.id]: {
-                          ...(newVariantByProduct[product.id] || blankVariant),
-                          stock_quantity: Number(event.target.value),
-                        },
-                      })
-                    }
-                    placeholder="Variant stock"
-                    className="w-full rounded-xl bg-neutral-800 border border-neutral-700 p-3"
-                  />
-
-                  <button
-                    onClick={() => addVariant(product.id)}
-                    className="w-full rounded-xl bg-white text-black py-3 font-semibold"
-                  >
-                    Add Variant
-                  </button>
                 </div>
-              </div>
-
-              <div>
-                <label className="block mb-2 text-sm text-neutral-400">
-                  Stock Quantity
-                </label>
-                <input
-                  type="number"
-                  value={product.stock_quantity || 0}
-                  onChange={(event) =>
-                    updateLocalProduct(
-                      product.id,
-                      'stock_quantity',
-                      Number(event.target.value)
-                    )
-                  }
-                  className="w-full rounded-xl bg-neutral-800 border border-neutral-700 p-3"
-                />
-                <p className="text-xs text-neutral-500 mt-2">
-                  Use this only for simple products without variants.
-                </p>
-              </div>
-
-              <div>
-                <label className="block mb-2 text-sm text-neutral-400">
-                  Sort Order
-                </label>
-                <input
-                  type="number"
-                  value={product.sort_order || 0}
-                  onChange={(event) =>
-                    updateLocalProduct(
-                      product.id,
-                      'sort_order',
-                      Number(event.target.value)
-                    )
-                  }
-                  className="w-full rounded-xl bg-neutral-800 border border-neutral-700 p-3"
-                />
-              </div>
-
-              <label className="flex items-center gap-3 text-sm">
-                <input
-                  type="checkbox"
-                  checked={product.active}
-                  onChange={(event) =>
-                    updateLocalProduct(
-                      product.id,
-                      'active',
-                      event.target.checked
-                    )
-                  }
-                />
-                Active product
-              </label>
-
-              <button
-                onClick={() => saveProduct(product)}
-                disabled={savingId === product.id}
-                className="w-full rounded-xl bg-white text-black py-3 font-semibold disabled:opacity-50"
-              >
-                {savingId === product.id ? 'Saving...' : 'Save Product'}
-              </button>
-
-              <button
-                onClick={() => removeProduct(product.id)}
-                className="w-full rounded-xl bg-red-700 text-white py-3 font-semibold"
-              >
-                Remove from Shop
-              </button>
+              )}
             </div>
-          </div>
-        ))}
+          )
+        })}
       </section>
     </main>
   )
