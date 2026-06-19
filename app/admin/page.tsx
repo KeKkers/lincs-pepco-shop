@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { QRCodeSVG } from 'qrcode.react'
 import { supabase } from '@/lib/supabase'
 
 declare global {
@@ -748,6 +749,24 @@ export default function AdminPage() {
                             placeholder="Customer-provided InPost reference or QR note"
                             className="mt-2 w-full rounded-xl bg-neutral-800 border border-neutral-700 p-3"
                           />
+			{order.customer_shipping_reference && (
+  <div className="mt-4">
+    <p className="text-sm text-neutral-400 mb-2">
+      InPost QR Code
+    </p>
+
+    <div className="rounded-xl bg-white p-4 inline-block">
+      <QRCodeSVG
+        value={String(order.customer_shipping_reference)}
+        size={180}
+      />
+    </div>
+
+    <p className="text-xs text-neutral-400 mt-2">
+      Ref: {order.customer_shipping_reference}
+    </p>
+  </div>
+)}
                         </div>
 
                         <div>
