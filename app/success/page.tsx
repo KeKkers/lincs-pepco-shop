@@ -12,7 +12,8 @@ type Order = {
 
 export default function SuccessPage() {
   const [order, setOrder] = useState<Order | null>(null)
-  const [inpostCode, setInpostCode] = useState('')
+  const [inpostPhone, setInpostPhone] = useState('')
+const [inpostCode, setInpostCode] = useState('')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
@@ -41,34 +42,40 @@ export default function SuccessPage() {
     loadOrder()
   }, [])
 
-  async function saveInpostCode() {
-    if (!order) return
+async function saveInpostCode() {
+  if (!order) return
 
-    if (!/^\d{9}$/.test(inpostCode.trim())) {
-      alert('Please enter a valid 9-digit InPost code.')
-      return
-    }
-
-    setSaving(true)
-
-    const response = await fetch('/api/save-inpost-code', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        orderId: order.id,
-        inpostCode: inpostCode.trim(),
-      }),
-    })
-
-    setSaving(false)
-
-    if (!response.ok) {
-      alert('Unable to save InPost code.')
-      return
-    }
-
-    setMessage('InPost code saved successfully.')
+  if (!/^\d{9}$/.test(inpostPhone.trim())) {
+    alert('Please enter the 9-digit phone number linked to the InPost parcel.')
+    return
   }
+
+  if (!/^\d{6}$/.test(inpostCode.trim())) {
+    alert('Please enter the 6-digit InPost code.')
+    return
+  }
+
+  setSaving(true)
+
+  const response = await fetch('/api/save-inpost-code', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      orderId: order.id,
+      inpostPhone: inpostPhone.trim(),
+      inpostCode: inpostCode.trim(),
+    }),
+  })
+
+  setSaving(false)
+
+  if (!response.ok) {
+    alert('Unable to save InPost details.')
+    return
+  }
+
+  setMessage('InPost details saved successfully.')
+}
 
   if (loading) {
     return (
@@ -116,15 +123,25 @@ export default function SuccessPage() {
             shipping.
           </p>
 
-          <input
-            type="text"
-            inputMode="numeric"
-            maxLength={9}
-            value={inpostCode}
-            onChange={(event) => setInpostCode(event.target.value)}
-            placeholder="123456789"
-            className="w-full rounded-xl bg-neutral-800 border border-neutral-700 p-3 mb-4"
-          />
+<input
+  type="text"
+  inputMode="numeric"
+  maxLength={9}
+  value={inpostPhone}
+  onChange={(event) => setInpostPhone(event.target.value)}
+  placeholder="Phone number, 9 digits"
+  className="w-full rounded-xl bg-neutral-800 border border-neutral-700 p-3 mb-3"
+/>
+
+<input
+  type="text"
+  inputMode="numeric"
+  maxLength={6}
+  value={inpostCode}
+  onChange={(event) => setInpostCode(event.target.value)}
+  placeholder="InPost code, 6 digits"
+  className="w-full rounded-xl bg-neutral-800 border border-neutral-700 p-3 mb-4"
+/>
 
           <button
             onClick={saveInpostCode}

@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { QRCodeSVG } from 'qrcode.react'
 import { supabase } from '@/lib/supabase'
+import { QRCodeSVG } from 'qrcode.react'
 
 declare global {
   interface Window {
@@ -38,6 +39,8 @@ type Order = {
   shipping_city: string | null
   shipping_postcode: string | null
   shipping_country: string | null
+  inpost_phone: string | null
+inpost_code: string | null
   created_at: string
   products?: {
     name: string
@@ -749,7 +752,7 @@ export default function AdminPage() {
                             placeholder="Customer-provided InPost reference or QR note"
                             className="mt-2 w-full rounded-xl bg-neutral-800 border border-neutral-700 p-3"
                           />
-			{order.customer_shipping_reference && (
+{order.inpost_phone && order.inpost_code && (
   <div className="mt-4">
     <p className="text-sm text-neutral-400 mb-2">
       InPost QR Code
@@ -757,13 +760,17 @@ export default function AdminPage() {
 
     <div className="rounded-xl bg-white p-4 inline-block">
       <QRCodeSVG
-        value={String(order.customer_shipping_reference)}
+        value={`P|${order.inpost_phone}|${order.inpost_code}`}
         size={180}
       />
     </div>
 
     <p className="text-xs text-neutral-400 mt-2">
-      Ref: {order.customer_shipping_reference}
+      Phone: {order.inpost_phone}
+    </p>
+
+    <p className="text-xs text-neutral-400">
+      Code: {order.inpost_code}
     </p>
   </div>
 )}
