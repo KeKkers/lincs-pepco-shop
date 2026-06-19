@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react'
 import { QRCodeSVG } from 'qrcode.react'
 import { supabase } from '@/lib/supabase'
-import { QRCodeSVG } from 'qrcode.react'
 
 declare global {
   interface Window {
