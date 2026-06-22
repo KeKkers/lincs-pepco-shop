@@ -12,8 +12,7 @@ type Order = {
 
 export default function SuccessPage() {
   const [order, setOrder] = useState<Order | null>(null)
-  const [inpostPhone, setInpostPhone] = useState('')
-const [inpostCode, setInpostCode] = useState('')
+  const [inpostReference, setInpostReference] = useState('')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
@@ -33,7 +32,7 @@ const [inpostCode, setInpostCode] = useState('')
 
       if (data.order) {
         setOrder(data.order)
-        setInpostCode(data.order.customer_shipping_reference || '')
+        setInpostReference(data.order.customer_shipping_reference || '')
       }
 
       setLoading(false)
@@ -42,40 +41,36 @@ const [inpostCode, setInpostCode] = useState('')
     loadOrder()
   }, [])
 
-async function saveInpostCode() {
-  if (!order) return
+  async function saveInpostCode() {
+    if (!order) return
 
-  if (!/^\d{9}$/.test(inpostPhone.trim())) {
-    alert('Please enter the 9-digit phone number linked to the InPost parcel.')
-    return
+    const reference = inpostReference.trim()
+
+    if (!reference) {
+      alert('Please enter your InPost barcode/reference number.')
+      return
+    }
+
+    setSaving(true)
+
+    const response = await fetch('/api/save-inpost-code', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        orderId: order.id,
+        customerShippingReference: reference,
+      }),
+    })
+
+    setSaving(false)
+
+    if (!response.ok) {
+      alert('Unable to save InPost reference.')
+      return
+    }
+
+    setMessage('InPost reference saved successfully.')
   }
-
-  if (!/^\d{6}$/.test(inpostCode.trim())) {
-    alert('Please enter the 6-digit InPost code.')
-    return
-  }
-
-  setSaving(true)
-
-  const response = await fetch('/api/save-inpost-code', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      orderId: order.id,
-      inpostPhone: inpostPhone.trim(),
-      inpostCode: inpostCode.trim(),
-    }),
-  })
-
-  setSaving(false)
-
-  if (!response.ok) {
-    alert('Unable to save InPost details.')
-    return
-  }
-
-  setMessage('InPost details saved successfully.')
-}
 
   if (loading) {
     return (
@@ -93,12 +88,12 @@ async function saveInpostCode() {
         Thank you. Your order has been received.
       </p>
 
-	<a
-  href="/"
-  className="block mb-4 rounded-xl bg-neutral-800 border border-neutral-700 text-center py-3 font-semibold"
->
-  Back to Shop
-</a>
+      <a
+        href="/"
+        className="block mb-4 rounded-xl bg-neutral-800 border border-neutral-700 text-center py-3 font-semibold"
+      >
+        Back to Shop
+      </a>
 
       {order && (
         <div className="rounded-2xl bg-neutral-900 border border-neutral-800 p-4 mb-6">
@@ -116,39 +111,29 @@ async function saveInpostCode() {
 
       {order?.shipping_method === 'Customer InPost' && (
         <div className="rounded-2xl bg-neutral-900 border border-neutral-800 p-4">
-          <h2 className="text-xl font-bold mb-2">Add your InPost code</h2>
+          <h2 className="text-xl font-bold mb-2">
+            Add your InPost barcode/reference
+          </h2>
 
           <p className="text-neutral-400 mb-4">
-            Enter your 9-digit InPost code so we can use your customer-provided
-            shipping.
+            Enter the InPost barcode/reference number from your InPost app.
           </p>
 
-<input
-  type="text"
-  inputMode="numeric"
-  maxLength={9}
-  value={inpostPhone}
-  onChange={(event) => setInpostPhone(event.target.value)}
-  placeholder="Phone number, 9 digits"
-  className="w-full rounded-xl bg-neutral-800 border border-neutral-700 p-3 mb-3"
-/>
-
-<input
-  type="text"
-  inputMode="numeric"
-  maxLength={6}
-  value={inpostCode}
-  onChange={(event) => setInpostCode(event.target.value)}
-  placeholder="InPost code, 6 digits"
-  className="w-full rounded-xl bg-neutral-800 border border-neutral-700 p-3 mb-4"
-/>
+          <input
+            type="text"
+            inputMode="numeric"
+            value={inpostReference}
+            onChange={(event) => setInpostReference(event.target.value)}
+            placeholder="e.g. 505387796"
+            className="w-full rounded-xl bg-neutral-800 border border-neutral-700 p-3 mb-4"
+          />
 
           <button
             onClick={saveInpostCode}
             disabled={saving}
             className="w-full rounded-xl bg-white text-black py-3 font-semibold disabled:opacity-50"
           >
-            {saving ? 'Saving...' : 'Save InPost Code'}
+            {saving ? 'Saving...' : 'Save InPost Reference'}
           </button>
 
           {message && (

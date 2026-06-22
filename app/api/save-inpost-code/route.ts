@@ -3,38 +3,20 @@ import { supabaseAdmin } from '@/lib/supabase-admin'
 
 export async function POST(request: Request) {
   try {
-    const { orderId, inpostPhone, inpostCode } = await request.json()
+    const { orderId, customerShippingReference } = await request.json()
 
-    if (!orderId || !inpostPhone || !inpostCode) {
+    if (!orderId || !customerShippingReference) {
       return NextResponse.json(
-        { error: 'Missing orderId, phone or code' },
+        { error: 'Missing orderId or InPost reference' },
         { status: 400 }
       )
     }
-
-    if (!/^\d{9}$/.test(String(inpostPhone))) {
-      return NextResponse.json(
-        { error: 'Phone number must be 9 digits' },
-        { status: 400 }
-      )
-    }
-
-    if (!/^\d{6}$/.test(String(inpostCode))) {
-      return NextResponse.json(
-        { error: 'InPost code must be 6 digits' },
-        { status: 400 }
-      )
-    }
-
-    const qrPayload = `P|${inpostPhone}|${inpostCode}`
 
     const { error } = await supabaseAdmin
       .from('orders')
       .update({
-        inpost_phone: String(inpostPhone),
-        inpost_code: String(inpostCode),
-        customer_shipping_reference: qrPayload,
-        customer_shipping_notes: 'Customer provided InPost phone and code',
+        customer_shipping_reference: String(customerShippingReference).trim(),
+        customer_shipping_notes: 'Customer provided InPost barcode/reference',
         shipping_paid_by: 'customer',
         carrier: 'InPost',
       })
@@ -43,8 +25,9 @@ export async function POST(request: Request) {
 
     if (error) {
       console.error(error)
+
       return NextResponse.json(
-        { error: 'Unable to save InPost details' },
+        { error: 'Unable to save InPost reference' },
         { status: 500 }
       )
     }
@@ -52,8 +35,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: true })
   } catch (error) {
     console.error(error)
+
     return NextResponse.json(
-      { error: 'Unable to save InPost details' },
+      { error: 'Unable to save InPost reference' },
       { status: 500 }
     )
   }
